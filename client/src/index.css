@@ -14,33 +14,33 @@
   --font-mono: "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
   /* Core palette (space-separated HSL) */
-  --background: 38 55% 98%;
-  --foreground: 222 38% 12%;
+  --background: 210 10% 98%;
+  --foreground: 191 72% 21%;
 
   --card: 0 0% 100%;
-  --card-foreground: 222 38% 12%;
-  --card-border: 220 18% 90%;
+  --card-foreground: 191 72% 21%;
+  --card-border: 191 30% 90%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 222 38% 12%;
-  --popover-border: 220 18% 90%;
+  --popover-foreground: 191 72% 21%;
+  --popover-border: 191 30% 90%;
 
-  --border: 220 18% 88%;
-  --input: 220 18% 84%;
-  --ring: 153 73% 35%;
+  --border: 191 30% 88%;
+  --input: 191 30% 84%;
+  --ring: 191 72% 21%;
 
-  /* Brand: deep green (trust) + cocoa gold (warmth) */
-  --primary: 153 73% 35%;
+  /* Brand: deep blue (R15 G76 B92) + vivid orange (R244 G163 B0) */
+  --primary: 192 72% 21%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 36 65% 92%;
-  --secondary-foreground: 222 38% 14%;
+  --secondary: 40 100% 48%;
+  --secondary-foreground: 191 72% 21%;
 
-  --muted: 35 30% 94%;
-  --muted-foreground: 215 18% 38%;
+  --muted: 191 15% 94%;
+  --muted-foreground: 191 30% 38%;
 
-  --accent: 24 90% 52%;
-  --accent-foreground: 0 0% 100%;
+  --accent: 40 100% 48%;
+  --accent-foreground: 191 72% 21%;
 
   --destructive: 0 78% 52%;
   --destructive-foreground: 0 0% 100%;
