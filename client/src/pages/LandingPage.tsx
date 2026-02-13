@@ -1,7 +1,7 @@
 import Meta from "@/components/Meta";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { CheckCircle2, ClipboardList, LineChart, Shield, Users } from "lucide-react";
+import { Check, CheckCircle2, ClipboardList, GraduationCap, LineChart, Shield, Users } from "lucide-react";
 
 export default function LandingPage() {
   return (
@@ -14,8 +14,9 @@ export default function LandingPage() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
         <header className="flex items-center justify-between gap-4 animate-in-up">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-primary to-accent grid place-items-center shadow-premium">
-              <Shield className="h-6 w-6 text-primary-foreground" />
+            <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-primary to-accent relative shadow-premium">
+              <Check className="h-5 w-5 text-primary-foreground absolute top-1.5 left-1.5" />
+              <GraduationCap className="h-6 w-6 text-primary-foreground absolute bottom-1.5 right-1.5" />
             </div>
             <div className="min-w-0">
               <p className="text-sm text-muted-foreground">Education SaaS</p>
