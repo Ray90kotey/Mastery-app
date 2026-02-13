@@ -1,0 +1,435 @@
+🚀 MASTER BUILD PROMPT
+Product Name: Mastery
+
+Build a clean, scalable MVP web application called Mastery that helps teachers track student performance across lessons and learning outcomes, calculate mastery intelligently, generate professional PDF reports, and support monetization through subscription tiers.
+
+🎯 PRODUCT VISION
+
+Mastery is a teacher-focused performance tracking system that:
+
+Tracks assessments
+
+Links assessments to lessons and learning outcomes
+
+Calculates mastery using weighted and recency-based scoring
+
+Generates beautiful parent-ready PDF reports
+
+Allows report sharing via email and WhatsApp
+
+Is designed to scale into a paid SaaS platform
+
+Target users:
+
+Private school teachers
+
+Basic/JHS schools
+
+After-school programs
+
+Learning centers
+
+Primary launch market: Ghana (mobile-first, affordable, WhatsApp-friendly)
+
+🏗️ CORE MVP FEATURES
+1️⃣ Authentication
+
+Teacher signup/login
+
+Secure authentication
+
+Teacher dashboard after login
+
+2️⃣ Class Management
+
+Teachers can:
+
+Create classes (e.g., Grade 6 Mathematics)
+
+Add students manually:
+
+Full Name
+
+Parent Name
+
+Parent Email
+
+Parent Phone (WhatsApp)
+
+Edit/delete students
+
+3️⃣ Academic Structure Setup
+
+Teachers can configure:
+
+Academic Year
+
+Term
+
+Week (Week 1–Week 12)
+
+For each week:
+
+Add lessons
+
+Add learning outcomes under each lesson
+
+Example structure:
+
+Week 3
+→ Lesson: Fractions Introduction
+  → Outcomes:
+   • Understand numerator & denominator
+   • Represent fractions visually
+
+4️⃣ Assessment System
+
+Teachers can create assessments:
+
+Title
+
+Type (Classwork, Quiz, Test, Project)
+
+Linked Lesson
+
+Linked Learning Outcome
+
+Total Score
+
+Date
+
+Then enter student scores for each assessment.
+
+🧠 MASTERY SCORING ENGINE (INTELLIGENT)
+
+Design a structured algorithm that considers:
+
+Assessment performance
+
+Assessment type weight
+
+Recency of performance
+
+Consistency trend
+
+📊 Assessment Weights
+
+Use weighted system:
+
+Classwork → 10%
+
+Quiz → 20%
+
+Test → 30%
+
+Project → 40%
+
+(Make configurable later.)
+
+🧮 Calculation Logic
+Step 1: Assessment Percentage
+
+percentage = (student_score / total_score) × 100
+
+Step 2: Apply Assessment Type Weight
+
+weighted_score = percentage × weight
+
+Step 3: Apply Recency Multiplier
+
+Most recent assessments → × 1.2
+
+Mid-term → × 1.0
+
+Older → × 0.8
+
+This rewards improvement over time.
+
+Step 4: Lesson Mastery
+
+lesson_mastery = sum(weighted_scores) / sum(weights)
+
+Step 5: Outcome Mastery
+
+Aggregate all assessments linked to that outcome.
+
+Step 6: Overall Mastery
+
+Weighted average of all outcome mastery scores.
+
+🏆 Mastery Classification Bands
+Percentage	Level	Meaning
+85–100	Mastered	Independent & confident
+70–84	Proficient	Minor support needed
+50–69	Developing	Needs reinforcement
+<50	Needs Support	Immediate intervention
+📈 Trend Indicator
+
+Compare:
+
+Last 3 assessments average
+
+Overall average
+
+If:
+
+Recent > Overall → Improving ↑
+
+Recent = Overall → Stable →
+
+Recent < Overall → Declining ↓
+
+Include this in student dashboard and PDF.
+
+📊 STUDENT DASHBOARD
+
+For each student show:
+
+Overall mastery score
+
+Performance by lesson
+
+Performance by outcome
+
+Trend indicator
+
+Strengths (Top 2 outcomes)
+
+Areas needing support (Lowest 2 outcomes)
+
+Use:
+
+Progress bars
+
+Color-coded mastery levels
+
+Clean UI
+
+Mobile responsive.
+
+📄 PDF REPORT GENERATION
+
+Generate a clean, professional PDF report per student.
+
+Report Structure
+Header
+
+School Name (editable)
+
+Class
+
+Term
+
+Student Name
+
+Teacher Name
+
+Date
+
+Body Sections
+
+Overall Mastery Score
+
+Mastery Level
+
+Trend Indicator
+
+Lesson Breakdown Table
+
+Learning Outcome Breakdown Table
+
+Assessment Summary
+
+Strengths Section
+
+Areas for Improvement
+
+AI-Generated Insight
+
+Teacher Comment Section
+
+Signature Line
+
+AI Insight Logic
+
+Auto-generate comments:
+
+If strong & consistent:
+
+Student demonstrates strong and consistent understanding across lessons.
+
+If improving:
+
+Student is showing steady improvement in recent assessments.
+
+If declining:
+
+Recent performance suggests the student may benefit from targeted revision.
+
+If weak in specific outcomes:
+
+Student needs additional support in [Outcome Name].
+
+Design Requirements
+
+Clean typography
+
+Professional layout
+
+Clear section headers
+
+Mastery color indicators
+
+Parent-friendly language
+
+Use reliable PDF generation library.
+
+📤 REPORT SHARING
+
+After PDF generation provide:
+
+Download button
+
+Send via Email (basic SMTP integration)
+
+Share via WhatsApp:
+
+Pre-filled message
+
+Download link to report
+
+💰 MONETIZATION MODEL
+
+Design architecture for SaaS subscription.
+
+Freemium Model (MVP Launch)
+Free Tier
+
+1 class
+
+Max 25 students
+
+Watermarked PDF reports
+
+No WhatsApp/email integration
+
+Limited analytics
+
+Pro Teacher (Subscription)
+
+Unlimited classes
+
+Unlimited students
+
+Branded reports
+
+Email + WhatsApp sharing
+
+AI insights
+
+Advanced mastery dashboard
+
+Suggested pricing (Ghana market):
+GHS 49–79 per month per teacher
+
+School Plan
+
+Multiple teachers
+
+Admin dashboard
+
+School-branded reports
+
+School-wide analytics
+
+Suggested pricing:
+GHS 1,500–5,000 per academic year
+
+Payment Integration (Ghana-Friendly)
+
+Support:
+
+Mobile Money
+
+Paystack
+
+Stripe
+
+🗄️ DATABASE STRUCTURE
+
+User (Teacher)
+Class
+Student
+AcademicYear
+Term
+Week
+Lesson
+Outcome
+Assessment
+StudentScore
+SubscriptionPlan
+Payment
+
+Ensure relationships are clean and scalable.
+
+🎨 UI REQUIREMENTS
+
+Clean
+
+Minimal
+
+Easy navigation
+
+Fast data entry
+
+Dashboard overview:
+
+Total students
+
+Students needing support
+
+Class average mastery
+
+🚫 MVP LIMITATIONS
+
+No parent login yet
+
+No multi-school admin (basic version only)
+
+No complex AI analytics beyond defined logic
+
+Local file storage acceptable for MVP
+
+🔮 FUTURE-READY ARCHITECTURE
+
+Keep scalable for:
+
+Parent portal
+
+Multi-school support
+
+Skill heatmaps
+
+Curriculum alignment
+
+Bulk term reports
+
+SMS notifications
+
+🧠 OVERALL GOAL
+
+Mastery should not just store scores.
+
+It should:
+
+Diagnose learning gaps
+
+Reward improvement
+
+Communicate clearly with parents
+
+Help teachers make instructional decisions
+
+Operate as a scalable SaaS product
+
+Build this MVP cleanly, modularly, and ready for iteration.
