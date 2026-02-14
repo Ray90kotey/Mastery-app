@@ -1,0 +1,214 @@
+🎨 UI DESIGN PROMPT – BLOCK STYLE (MASTERY APP)
+
+Design a modern, block-based dashboard UI for an education SaaS app called Mastery.
+
+The visual style should be inspired by bold modular grid layouts similar to the reference image: strong rounded rectangles, clean typography, color blocking, and minimalistic iconography.
+
+🎯 Design Direction
+
+Create a modular block layout with:
+
+Large rounded cards
+
+Asymmetrical but balanced grid
+
+Strong color blocking
+
+Minimal shadows
+
+Flat modern aesthetic
+
+Professional but energetic feel
+
+The interface should feel:
+
+Confident
+
+Clean
+
+Structured
+
+Academic but modern
+
+🎨 Color Palette (Inspired by Image)
+
+Primary Teal:
+RGB(15, 76, 92)
+Hex: #0F4C5C
+
+Primary Gold:
+RGB(244, 163, 0)
+Hex: #F4A300
+
+White:
+RGB(255, 255, 255)
+Hex: #FFFFFF
+
+Optional Neutral:
+Light warm gray background for contrast
+
+Use:
+
+Teal for primary blocks
+
+Gold for highlights and action elements
+
+White for typography on dark backgrounds
+
+Avoid gradients. Use solid color blocks.
+
+🧱 Layout Structure
+
+Design a dashboard homepage with modular blocks arranged in a grid.
+
+Top Section (Hero Block)
+
+Large horizontal rounded card:
+
+App logo
+
+“Mastery Dashboard”
+
+Current Term
+
+Quick summary stats
+
+Use split background:
+Left half teal
+Right half gold
+
+Middle Grid (Performance Blocks)
+
+Create 4–6 rounded cards in grid format:
+
+Total Students
+
+Class Average Mastery
+
+Students Needing Support
+
+Recent Assessments
+
+Weekly Performance Trend
+
+Generate Reports
+
+Each block:
+
+Solid color background (alternate teal and gold)
+
+Large number/stat
+
+Small supporting text
+
+Minimal icon (simple upward arrow or circle motif)
+
+Student Profile View (Block Style)
+
+Design student page using stacked blocks:
+
+Large Mastery Score Card
+
+Big percentage number
+
+Mastery label (Mastered / Developing etc.)
+
+Circular progress indicator
+
+Lesson Performance Grid
+
+Small square cards per lesson
+
+Color-coded by mastery level
+
+Outcome Breakdown Block
+
+Clean table within rounded container
+
+AI Insight Card
+
+White background
+
+Teal border
+
+Clean typography
+
+🅰 Typography
+
+Use:
+
+Archivo SemiBold for headings
+
+Archivo Medium for body text
+
+Style:
+
+Large bold headings
+
+Generous spacing
+
+Minimal decorative elements
+
+🔲 Component Styling Rules
+
+Border radius: 24px–32px
+
+No heavy drop shadows
+
+Clear spacing between blocks
+
+Consistent padding (24px+ inside blocks)
+
+Use icon motifs similar to:
+
+Upward arrow curve
+
+Circle + arrow combo
+
+Simple geometric icons
+
+📱 Responsive Design
+
+On mobile:
+
+Stack blocks vertically
+
+Keep large touch-friendly cards
+
+Maintain strong color blocking
+
+🎯 Visual Identity Goals
+
+The app should feel:
+
+✔ Structured like a data dashboard
+✔ Bold like a modern fintech UI
+✔ Friendly for teachers
+✔ Clean enough for school administrators
+✔ Premium enough for paid subscription
+
+🧠 Optional Enhancement
+
+Add subtle patterns:
+
+Checkerboard gold/teal background accents
+
+Minimal geometric overlays
+
+Section dividers using color blocks
+
+But keep it professional, not playful.
+
+🖥️ If Generating Code (React + Tailwind)
+
+Use:
+
+CSS grid layout
+
+Rounded-3xl corners
+
+bg-[#0F4C5C] and bg-[#F4A300]
+
+Consistent spacing scale
+
+Component-based structure
