@@ -149,24 +149,15 @@
 
 @layer components {
   .app-surface {
-    background:
-      radial-gradient(1200px 800px at 10% -10%, hsl(var(--accent) / 0.16), transparent 60%),
-      radial-gradient(900px 700px at 90% 0%, hsl(var(--primary) / 0.20), transparent 55%),
-      radial-gradient(900px 700px at 70% 110%, hsl(var(--chart-3) / 0.14), transparent 55%),
-      linear-gradient(to bottom, hsl(var(--background)), hsl(var(--background)));
+    @apply bg-background;
   }
 
   .glass {
-    background: linear-gradient(
-      to bottom right,
-      hsl(var(--card) / 0.78),
-      hsl(var(--card) / 0.58)
-    );
+    @apply bg-card/90;
     backdrop-filter: blur(10px);
     border: 1px solid hsl(var(--border) / 0.7);
     box-shadow:
-      0 22px 60px -28px rgba(2, 6, 23, 0.28),
-      0 2px 0 0 rgba(255, 255, 255, 0.6) inset;
+      0 22px 60px -28px rgba(2, 6, 23, 0.28);
   }
 
   .grain-overlay {

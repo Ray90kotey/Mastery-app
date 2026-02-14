@@ -14,7 +14,7 @@ export default function LandingPage() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
         <header className="flex items-center justify-between gap-4 animate-in-up">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-primary to-accent relative shadow-premium">
+            <div className="h-11 w-11 rounded-2xl bg-primary relative shadow-premium">
               <Check className="h-5 w-5 text-primary-foreground absolute top-1.5 left-1.5" />
               <GraduationCap className="h-6 w-6 text-primary-foreground absolute bottom-1.5 right-1.5" />
             </div>
@@ -38,7 +38,7 @@ export default function LandingPage() {
             <Button
               onClick={() => (window.location.href = "/api/login")}
               data-testid="landing-login-primary"
-              className="rounded-xl shadow-sm hover:shadow-md transition-all bg-gradient-to-r from-primary to-primary/85"
+              className="rounded-xl shadow-sm hover:shadow-md transition-all bg-primary"
             >
               Get started
             </Button>
@@ -103,7 +103,7 @@ export default function LandingPage() {
               <Button
                 onClick={() => (window.location.href = "/api/login")}
                 data-testid="landing-cta"
-                className="rounded-xl shadow-sm hover:shadow-md transition-all bg-gradient-to-r from-primary to-primary/85"
+                className="rounded-xl shadow-sm hover:shadow-md transition-all bg-primary"
               >
                 Log in to your workspace
               </Button>
@@ -154,7 +154,7 @@ export default function LandingPage() {
               </div>
             </Card>
 
-            <Card className="rounded-3xl border border-border/70 bg-gradient-to-br from-primary/10 to-accent/10 p-6 shadow-premium">
+            <Card className="rounded-3xl border border-border/70 bg-secondary p-6 shadow-premium">
               <h3 className="text-lg font-bold">A workflow that feels calm</h3>
               <p className="mt-2 text-sm text-muted-foreground">
                 Minimal clicks. Clear labels. Strong contrast. Everything tuned for real classrooms.
