@@ -495,38 +495,84 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const stream = fs.createWriteStream(filePath);
       doc.pipe(stream);
 
-      doc.fontSize(18).text("Student Performance Report", { align: "center" });
-      doc.moveDown();
-      doc.fontSize(12).text(`Overall Mastery: ${mastery.overall.toFixed(1)}%`);
-      doc.text(`Mastery Level: ${mastery.masteryLevel}`);
-      doc.text(`Trend: ${mastery.trend}`);
+      // --- Header Section ---
+      doc.rect(0, 0, 595.28, 80).fill("#0F4C5C");
+      doc.fillColor("#FFFFFF").fontSize(24).font("Helvetica-Bold").text("MASTERY PERFORMANCE REPORT", 50, 30);
+      
+      doc.fillColor("#000000").font("Helvetica").fontSize(10);
+      doc.moveDown(4);
+
+      // School Info
+      const schoolName = mastery.schoolName || "Academic Institution";
+      doc.fontSize(14).font("Helvetica-Bold").text(schoolName.toUpperCase(), { align: "right" });
+      doc.fontSize(10).font("Helvetica").text("Academic Performance Division", { align: "right" });
       doc.moveDown();
 
-      doc.fontSize(14).text("Strengths", { underline: true });
-      mastery.strengths.forEach((s) => {
-        doc.fontSize(11).text(`- ${s.outcomeDescription}: ${s.score.toFixed(1)}%`);
-      });
-      doc.moveDown();
+      // Student Info Box
+      doc.rect(50, 110, 495, 60).stroke("#E2E8F0");
+      doc.fontSize(10).font("Helvetica-Bold").text("STUDENT NAME:", 65, 125);
+      doc.font("Helvetica").text(mastery.studentName || "N/A", 160, 125);
+      
+      doc.font("Helvetica-Bold").text("REPORT DATE:", 350, 125);
+      doc.font("Helvetica").text(new Date().toLocaleDateString(), 440, 125);
 
-      doc.fontSize(14).text("Areas for Improvement", { underline: true });
-      mastery.needsSupport.forEach((s) => {
-        doc.fontSize(11).text(`- ${s.outcomeDescription}: ${s.score.toFixed(1)}%`);
-      });
-      doc.moveDown();
+      doc.font("Helvetica-Bold").text("MASTERY LEVEL:", 65, 145);
+      const levelColor = mastery.overall >= 85 ? "#0F4C5C" : mastery.overall >= 70 ? "#F4A300" : "#E53E3E";
+      doc.fillColor(levelColor).text(mastery.masteryLevel.toUpperCase(), 160, 145);
+      doc.fillColor("#000000");
 
-      doc.fontSize(14).text("Lesson Breakdown", { underline: true });
+      doc.font("Helvetica-Bold").text("TREND:", 350, 145);
+      doc.font("Helvetica").text(mastery.trend.toUpperCase(), 440, 145);
+
+      doc.moveDown(5);
+
+      // --- Score Highlights ---
+      doc.rect(50, 190, 495, 40).fill("#F4A300");
+      doc.fillColor("#FFFFFF").fontSize(16).font("Helvetica-Bold").text("OVERALL MASTERY SCORE", 65, 202);
+      doc.fontSize(20).text(`${mastery.overall.toFixed(1)}%`, 450, 200, { align: "right", width: 80 });
+      doc.fillColor("#000000");
+
+      doc.moveDown(4);
+
+      // --- Performance Tables ---
+      const drawTableHeaders = (y: number, title: string) => {
+        doc.fontSize(12).font("Helvetica-Bold").text(title.toUpperCase(), 50, y);
+        doc.rect(50, y + 15, 495, 20).fill("#F1F5F9");
+        doc.fillColor("#475569").fontSize(9).text("DESCRIPTION", 65, y + 21);
+        doc.text("SCORE", 480, y + 21, { align: "right", width: 50 });
+        doc.fillColor("#000000");
+        return y + 35;
+      };
+
+      let currentY = 260;
+      currentY = drawTableHeaders(currentY, "Lesson Breakdown");
+      
       mastery.byLesson.forEach((l) => {
-        doc.fontSize(11).text(`- ${l.lessonTitle}: ${l.score.toFixed(1)}%`);
+        doc.fontSize(10).font("Helvetica").text(l.lessonTitle, 65, currentY);
+        doc.font("Helvetica-Bold").text(`${l.score.toFixed(1)}%`, 480, currentY, { align: "right", width: 50 });
+        doc.moveTo(50, currentY + 15).lineTo(545, currentY + 15).stroke("#F1F5F9");
+        currentY += 25;
       });
-      doc.moveDown();
 
-      doc.fontSize(14).text("AI Insight", { underline: true });
-      doc.fontSize(11).text(generateInsight(mastery.trend, mastery.overall, mastery.needsSupport));
-      doc.moveDown();
+      currentY += 20;
+      currentY = drawTableHeaders(currentY, "Outcome Analysis");
+      mastery.byOutcome.forEach((o) => {
+        doc.fontSize(10).font("Helvetica").text(o.outcomeDescription, 65, currentY);
+        doc.font("Helvetica-Bold").text(`${o.score.toFixed(1)}%`, 480, currentY, { align: "right", width: 50 });
+        doc.moveTo(50, currentY + 15).lineTo(545, currentY + 15).stroke("#F1F5F9");
+        currentY += 25;
+      });
 
-      doc.fontSize(12).text("Teacher Comment:");
-      doc.moveDown(2);
-      doc.text("Signature: __________________________");
+      // --- Insights & Comments ---
+      currentY += 30;
+      doc.rect(50, currentY, 495, 80).stroke("#0F4C5C");
+      doc.fontSize(11).font("Helvetica-Bold").text("ACADEMIC INSIGHTS", 65, currentY + 15);
+      doc.fontSize(10).font("Helvetica").text(generateInsight(mastery.trend, mastery.overall, mastery.needsSupport), 65, currentY + 35, { width: 465 });
+
+      // --- Footer ---
+      doc.fontSize(10).font("Helvetica-Bold").text("TEACHER SIGNATURE:", 50, 720);
+      doc.moveTo(180, 732).lineTo(350, 732).stroke("#000000");
+      doc.fontSize(8).font("Helvetica").text("This report is an official record of student mastery performance.", 50, 750, { align: "center", width: 495 });
 
       doc.end();
 
