@@ -356,6 +356,7 @@ export const assessmentTypeWeights: Record<AssessmentType, number> = {
 
 export type StudentMasteryResponse = {
   studentId: number;
+  studentName?: string;
   overall: number;
   masteryLevel: MasteryLevel;
   trend: TrendIndicator;
@@ -367,10 +368,28 @@ export type StudentMasteryResponse = {
   }[];
   byLesson: { lessonId: number; lessonTitle: string; score: number }[];
   byOutcome: { outcomeId: number; outcomeDescription: string; score: number }[];
+  schoolName?: string;
+};
+
+export type ClassMasteryResponse = {
+  classId: number;
+  className: string;
+  totalStudents: number;
+  performingCount: number; // Mastered + Proficient
+  midLevelCount: number; // Developing
+  remediationCount: number; // Needs Support
+  averageMastery: number;
+  studentBreakdown: {
+    studentId: number;
+    fullName: string;
+    overall: number;
+    level: MasteryLevel;
+  }[];
 };
 
 export type ReportResponse = {
-  studentId: number;
+  studentId?: number;
+  classId?: number;
   fileName: string;
   url: string;
 };

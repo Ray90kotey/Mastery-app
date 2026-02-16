@@ -323,6 +323,14 @@ export const api = {
         404: errorSchemas.notFound,
       },
     },
+    class: {
+      method: "GET" as const,
+      path: "/api/classes/:id/mastery" as const,
+      responses: {
+        200: z.custom<any>(), // ClassMasteryResponse
+        404: errorSchemas.notFound,
+      },
+    },
   },
 
   reports: {
@@ -335,6 +343,21 @@ export const api = {
       responses: {
         201: z.object({
           studentId: z.number(),
+          fileName: z.string(),
+          url: z.string(),
+        }),
+        404: errorSchemas.notFound,
+      },
+    },
+    generateClass: {
+      method: "POST" as const,
+      path: "/api/classes/:id/report" as const,
+      input: z.object({
+        termId: z.coerce.number().optional(),
+      }),
+      responses: {
+        201: z.object({
+          classId: z.number(),
           fileName: z.string(),
           url: z.string(),
         }),

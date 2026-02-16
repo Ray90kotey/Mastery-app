@@ -156,6 +156,10 @@ export interface IStorage {
     teacherId: string,
     studentId: number,
   ): Promise<StudentMasteryResponse | undefined>;
+  getClassMastery(
+    teacherId: string,
+    classId: number,
+  ): Promise<any | undefined>;
 }
 
 function classifyMasteryLevel(score: number) {
@@ -609,13 +613,15 @@ export class DatabaseStorage implements IStorage {
     teacherId: string,
     studentId: number,
   ): Promise<StudentMasteryResponse | undefined> {
-    const [studentRow] = await db
+    const studentRow = await db
       .select({
         id: students.id,
+        fullName: students.fullName,
         classId: students.classId,
       })
       .from(students)
-      .where(eq(students.id, studentId));
+      .where(eq(students.id, studentId))
+      .then(rows => rows[0]);
 
     if (!studentRow) return undefined;
 
@@ -624,6 +630,8 @@ export class DatabaseStorage implements IStorage {
       .from(classes)
       .where(and(eq(classes.id, studentRow.classId), eq(classes.teacherId, teacherId)));
     if (!cls) return undefined;
+
+    const settingsRow = await this.getSettings(teacherId);
 
     const scores = await db
       .select({
@@ -648,6 +656,7 @@ export class DatabaseStorage implements IStorage {
     if (scores.length === 0) {
       return {
         studentId,
+        studentName: studentRow.fullName,
         overall: 0,
         masteryLevel: "Needs Support",
         trend: "Stable",
@@ -655,6 +664,7 @@ export class DatabaseStorage implements IStorage {
         needsSupport: [],
         byLesson: [],
         byOutcome: [],
+        schoolName: settingsRow.schoolName,
       };
     }
 
@@ -723,6 +733,7 @@ export class DatabaseStorage implements IStorage {
 
     return {
       studentId,
+      studentName: studentRow.fullName,
       overall: overallClamped,
       masteryLevel: classifyMasteryLevel(overallClamped),
       trend,
@@ -730,6 +741,62 @@ export class DatabaseStorage implements IStorage {
       needsSupport,
       byLesson,
       byOutcome,
+      schoolName: settingsRow.schoolName,
+    };
+  }
+
+  async getClassMastery(teacherId: string, classId: number): Promise<any | undefined> {
+    const [cls] = await db
+      .select()
+      .from(classes)
+      .where(and(eq(classes.id, classId), eq(classes.teacherId, teacherId)));
+    if (!cls) return undefined;
+
+    const classStudents = await db
+      .select()
+      .from(students)
+      .where(eq(students.classId, classId));
+
+    if (classStudents.length === 0) {
+      return {
+        classId,
+        className: cls.name,
+        totalStudents: 0,
+        performingCount: 0,
+        midLevelCount: 0,
+        remediationCount: 0,
+        averageMastery: 0,
+        studentBreakdown: [],
+      };
+    }
+
+    const studentMasteries = await Promise.all(
+      classStudents.map((s) => this.getStudentMastery(teacherId, s.id)),
+    );
+
+    const validMasteries = studentMasteries.filter(Boolean) as StudentMasteryResponse[];
+
+    const performing = validMasteries.filter((m) => m.overall >= 70).length;
+    const mid = validMasteries.filter((m) => m.overall >= 50 && m.overall < 70).length;
+    const remediation = validMasteries.filter((m) => m.overall < 50).length;
+    const avg = validMasteries.length > 0
+      ? validMasteries.reduce((sum, m) => sum + m.overall, 0) / validMasteries.length
+      : 0;
+
+    return {
+      classId,
+      className: cls.name,
+      totalStudents: classStudents.length,
+      performingCount: performing,
+      midLevelCount: mid,
+      remediationCount: remediation,
+      averageMastery: avg,
+      studentBreakdown: validMasteries.map((m) => ({
+        studentId: m.studentId,
+        fullName: m.studentName || "Unknown",
+        overall: m.overall,
+        level: m.masteryLevel,
+      })),
     };
   }
 }
