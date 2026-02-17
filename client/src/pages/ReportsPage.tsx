@@ -7,14 +7,15 @@ import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError, redirectToLogin } from "@/lib/auth-utils";
 import { useClasses } from "@/hooks/use-classes";
 import { useStudentsByClass } from "@/hooks/use-students";
-import { useGenerateStudentReport } from "@/hooks/use-reports";
+import { useGenerateStudentReport, useGenerateClassReport } from "@/hooks/use-reports";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Download, FileText, Users } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Download, FileText, Users, GraduationCap } from "lucide-react";
 
 export default function ReportsPage() {
   const { toast } = useToast();
@@ -24,7 +25,8 @@ export default function ReportsPage() {
   const studentsQ = useStudentsByClass(classId);
 
   const reportM = useGenerateStudentReport();
-  const [lastReport, setLastReport] = useState<{ studentId: number; fileName: string; url: string } | null>(null);
+  const classReportM = useGenerateClassReport();
+  const [lastReport, setLastReport] = useState<{ studentId?: number; classId?: number; fileName: string; url: string } | null>(null);
 
   const waMessage = useMemo(() => {
     const url = lastReport?.url ?? "";
@@ -39,7 +41,7 @@ export default function ReportsPage() {
     <AppShell>
       <Meta
         title="Reports • Mastery"
-        description="Generate student reports and share via WhatsApp."
+        description="Generate student and class reports and share via WhatsApp."
       />
 
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
@@ -47,7 +49,7 @@ export default function ReportsPage() {
           <p className="text-xs text-muted-foreground">Export</p>
           <h1 className="text-2xl sm:text-3xl font-extrabold">Reports</h1>
           <p className="mt-2 text-sm text-muted-foreground max-w-2xl">
-            Generate a report for any student. Download or share the link directly via WhatsApp.
+            Generate a report for any student or a full class summary. Download or share the link directly via WhatsApp.
           </p>
         </div>
       </div>
@@ -56,98 +58,161 @@ export default function ReportsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-5 lg:gap-6 items-start">
         <Card className="rounded-3xl border border-border/70 bg-card/70 p-5 shadow-sm">
-          <div className="flex items-center gap-2">
-            <Users className="h-4.5 w-4.5 text-primary" />
-            <h2 className="font-bold">Pick a student</h2>
-          </div>
+          <Tabs defaultValue="student" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 rounded-2xl mb-6">
+              <TabsTrigger value="student" className="rounded-xl">Student</TabsTrigger>
+              <TabsTrigger value="class" className="rounded-xl">Class</TabsTrigger>
+            </TabsList>
 
-          <div className="mt-4 space-y-3">
-            <div className="space-y-2">
-              <Label>Class</Label>
-              <Select
-                value={classId ? String(classId) : ""}
-                onValueChange={(v) => {
-                  setClassId(v ? Number(v) : null);
-                  setLastReport(null);
-                }}
-              >
-                <SelectTrigger className="rounded-xl bg-card/70 border-border/70" data-testid="reports-class-select">
-                  <SelectValue placeholder={classesQ.isLoading ? "Loading..." : "Select class"} />
-                </SelectTrigger>
-                <SelectContent className="rounded-xl">
-                  {(classesQ.data ?? []).map((c) => (
-                    <SelectItem key={c.id} value={String(c.id)} data-testid={`reports-class-item-${c.id}`}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {classId ? (
-              studentsQ.isLoading ? (
-                <div className="space-y-2" data-testid="reports-students-loading">
-                  <Skeleton className="h-11 rounded-2xl" />
-                  <Skeleton className="h-11 rounded-2xl" />
-                </div>
-              ) : studentsQ.isError ? (
-                <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm" data-testid="reports-students-error">
-                  <p className="font-semibold text-destructive">Failed to load students</p>
-                  <p className="mt-1 text-muted-foreground">{(studentsQ.error as any)?.message ?? "Try again."}</p>
-                </div>
-              ) : (studentsQ.data?.length ?? 0) === 0 ? (
-                <EmptyState
-                  icon={<Users className="h-6 w-6" />}
-                  title="No students yet"
-                  description="Add students in Classes first, then return here to generate reports."
-                  className="bg-card/50"
-                  primaryAction={{
-                    label: "Go to Classes",
-                    onClick: () => (window.location.href = "/app/classes"),
-                    testId: "reports-empty-go-classes",
-                  }}
-                />
-              ) : (
-                <div className="space-y-2" data-testid="reports-student-list">
-                  {studentsQ.data!.map((s) => (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          const result = await reportM.mutateAsync({ studentId: s.id });
-                          setLastReport(result);
-                          toast({ title: "Report generated", description: `${s.fullName}` });
-                        } catch (e: any) {
-                          if (isUnauthorizedError(e)) return redirectToLogin(toast as any);
-                          toast({ title: "Could not generate report", description: e?.message ?? "Try again", variant: "destructive" });
-                        }
-                      }}
-                      disabled={reportM.isPending}
-                      className="w-full text-left rounded-2xl border border-border/70 bg-card/60 px-4 py-3 hover:bg-muted/50 hover:shadow-sm transition-all duration-200 disabled:opacity-60"
-                      data-testid={`reports-generate-student-${s.id}`}
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="font-semibold truncate">{s.fullName}</p>
-                          <p className="mt-1 text-xs text-muted-foreground truncate">
-                            Parent: {s.parentName || "—"} • {s.parentPhone || "No phone"}
-                          </p>
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {reportM.isPending ? "Working..." : "Generate"}
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )
-            ) : (
-              <div className="rounded-2xl border border-border/70 bg-muted/30 p-4 text-sm text-muted-foreground" data-testid="reports-select-class-hint">
-                Select a class to see its students.
+            <TabsContent value="student" className="mt-0 space-y-4">
+              <div className="flex items-center gap-2">
+                <Users className="h-4.5 w-4.5 text-primary" />
+                <h2 className="font-bold">Pick a student</h2>
               </div>
-            )}
-          </div>
+
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label>Class</Label>
+                  <Select
+                    value={classId ? String(classId) : ""}
+                    onValueChange={(v) => {
+                      setClassId(v ? Number(v) : null);
+                      setLastReport(null);
+                    }}
+                  >
+                    <SelectTrigger className="rounded-xl bg-card/70 border-border/70" data-testid="reports-class-select">
+                      <SelectValue placeholder={classesQ.isLoading ? "Loading..." : "Select class"} />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      {(classesQ.data ?? []).map((c) => (
+                        <SelectItem key={c.id} value={String(c.id)} data-testid={`reports-class-item-${c.id}`}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {classId ? (
+                  studentsQ.isLoading ? (
+                    <div className="space-y-2" data-testid="reports-students-loading">
+                      <Skeleton className="h-11 rounded-2xl" />
+                      <Skeleton className="h-11 rounded-2xl" />
+                    </div>
+                  ) : studentsQ.isError ? (
+                    <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm" data-testid="reports-students-error">
+                      <p className="font-semibold text-destructive">Failed to load students</p>
+                      <p className="mt-1 text-muted-foreground">{(studentsQ.error as any)?.message ?? "Try again."}</p>
+                    </div>
+                  ) : (studentsQ.data?.length ?? 0) === 0 ? (
+                    <EmptyState
+                      icon={<Users className="h-6 w-6" />}
+                      title="No students yet"
+                      description="Add students in Classes first, then return here to generate reports."
+                      className="bg-card/50"
+                      primaryAction={{
+                        label: "Go to Classes",
+                        onClick: () => (window.location.href = "/app/classes"),
+                        testId: "reports-empty-go-classes",
+                      }}
+                    />
+                  ) : (
+                    <div className="space-y-2" data-testid="reports-student-list">
+                      {studentsQ.data!.map((s) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              const result = await reportM.mutateAsync({ studentId: s.id });
+                              setLastReport(result);
+                              toast({ title: "Report generated", description: `${s.fullName}` });
+                            } catch (e: any) {
+                              if (isUnauthorizedError(e)) return redirectToLogin(toast as any);
+                              toast({ title: "Could not generate report", description: e?.message ?? "Try again", variant: "destructive" });
+                            }
+                          }}
+                          disabled={reportM.isPending}
+                          className="w-full text-left rounded-2xl border border-border/70 bg-card/60 px-4 py-3 hover:bg-muted/50 hover:shadow-sm transition-all duration-200 disabled:opacity-60"
+                          data-testid={`reports-generate-student-${s.id}`}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="font-semibold truncate">{s.fullName}</p>
+                              <p className="mt-1 text-xs text-muted-foreground truncate">
+                                Parent: {s.parentName || "—"} • {s.parentPhone || "No phone"}
+                              </p>
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {reportM.isPending ? "Working..." : "Generate"}
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )
+                ) : (
+                  <div className="rounded-2xl border border-border/70 bg-muted/30 p-4 text-sm text-muted-foreground" data-testid="reports-select-class-hint">
+                    Select a class to see its students.
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="class" className="mt-0 space-y-4">
+              <div className="flex items-center gap-2">
+                <GraduationCap className="h-4.5 w-4.5 text-primary" />
+                <h2 className="font-bold">Generate Class Report</h2>
+              </div>
+
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Get a complete summary of class performance grouped by mastery levels.
+                </p>
+                <div className="space-y-2">
+                  <Label>Pick a Class</Label>
+                  <Select
+                    value={classId ? String(classId) : ""}
+                    onValueChange={(v) => {
+                      setClassId(v ? Number(v) : null);
+                      setLastReport(null);
+                    }}
+                  >
+                    <SelectTrigger className="rounded-xl bg-card/70 border-border/70" data-testid="reports-class-select-bulk">
+                      <SelectValue placeholder={classesQ.isLoading ? "Loading..." : "Select class"} />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      {(classesQ.data ?? []).map((c) => (
+                        <SelectItem key={c.id} value={String(c.id)} data-testid={`reports-class-item-bulk-${c.id}`}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Button
+                  className="w-full rounded-2xl h-12"
+                  disabled={!classId || classReportM.isPending}
+                  onClick={async () => {
+                    if (!classId) return;
+                    try {
+                      const result = await classReportM.mutateAsync({ classId });
+                      setLastReport(result);
+                      const clsName = classesQ.data?.find(c => c.id === classId)?.name;
+                      toast({ title: "Class report generated", description: `${clsName}` });
+                    } catch (e: any) {
+                      if (isUnauthorizedError(e)) return redirectToLogin(toast as any);
+                      toast({ title: "Could not generate report", description: e?.message ?? "Try again", variant: "destructive" });
+                    }
+                  }}
+                  data-testid="reports-generate-class-btn"
+                >
+                  {classReportM.isPending ? "Generating..." : "Generate Class Report"}
+                </Button>
+              </div>
+            </TabsContent>
+          </Tabs>
         </Card>
 
         <Card className="rounded-3xl border border-border/70 bg-card/70 p-5 sm:p-6 shadow-sm">
@@ -170,12 +235,12 @@ export default function ReportsPage() {
             <EmptyState
               icon={<FileText className="h-6 w-6" />}
               title="No report generated yet"
-              description="Generate a report from the list on the left."
+              description="Pick a student or class from the list to generate."
               className="bg-card/50"
               primaryAction={{
-                label: "Select a student",
+                label: "Get Started",
                 onClick: () => {},
-                testId: "reports-empty-select-student",
+                testId: "reports-empty-get-started",
               }}
             />
           ) : (
