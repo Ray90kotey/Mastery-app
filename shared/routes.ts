@@ -74,6 +74,14 @@ export const api = {
         400: errorSchemas.validation,
       },
     },
+    get: {
+      method: "GET" as const,
+      path: "/api/classes/:id" as const,
+      responses: {
+        200: z.custom<Class>(),
+        404: errorSchemas.notFound,
+      },
+    },
     update: {
       method: "PUT" as const,
       path: "/api/classes/:id" as const,
@@ -100,6 +108,14 @@ export const api = {
       path: "/api/classes/:classId/students" as const,
       responses: {
         200: z.array(z.custom<Student>()),
+        404: errorSchemas.notFound,
+      },
+    },
+    get: {
+      method: "GET" as const,
+      path: "/api/students/:id" as const,
+      responses: {
+        200: z.custom<Student>(),
         404: errorSchemas.notFound,
       },
     },
@@ -262,6 +278,14 @@ export const api = {
       path: "/api/classes/:classId/assessments" as const,
       responses: {
         200: z.array(z.custom<Assessment>()),
+        404: errorSchemas.notFound,
+      },
+    },
+    get: {
+      method: "GET" as const,
+      path: "/api/assessments/:id" as const,
+      responses: {
+        200: z.custom<Assessment>(),
         404: errorSchemas.notFound,
       },
     },
