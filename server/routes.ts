@@ -494,6 +494,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const mastery = await storage.getStudentMastery(teacherId, id);
     if (!mastery) return res.status(404).json({ message: "Student not found" });
 
+    const teacherSettings = await storage.getSettings(teacherId);
+
     const reportsDir = ensureReportsDir();
     const fileName = `mastery_report_student_${id}_${Date.now()}.pdf`;
     const filePath = path.join(reportsDir, fileName);
@@ -505,13 +507,24 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       // --- Header Section ---
       doc.rect(0, 0, 595.28, 80).fill("#0F4C5C");
-      doc.fillColor("#FFFFFF").fontSize(24).font("Helvetica-Bold").text("MASTERY PERFORMANCE REPORT", 50, 30);
+      
+      if (teacherSettings?.schoolLogo) {
+        try {
+          const logoBuffer = Buffer.from(teacherSettings.schoolLogo.split(",")[1], "base64");
+          doc.image(logoBuffer, 50, 15, { height: 50 });
+          doc.fillColor("#FFFFFF").fontSize(20).font("Helvetica-Bold").text("MASTERY PERFORMANCE", 120, 32);
+        } catch (e) {
+          doc.fillColor("#FFFFFF").fontSize(24).font("Helvetica-Bold").text("MASTERY PERFORMANCE REPORT", 50, 30);
+        }
+      } else {
+        doc.fillColor("#FFFFFF").fontSize(24).font("Helvetica-Bold").text("MASTERY PERFORMANCE REPORT", 50, 30);
+      }
       
       doc.fillColor("#000000").font("Helvetica").fontSize(10);
       doc.moveDown(4);
 
       // School Info
-      const schoolName = mastery.schoolName || "Academic Institution";
+      const schoolName = teacherSettings?.schoolName || mastery.schoolName || "Academic Institution";
       doc.fontSize(14).font("Helvetica-Bold").text(schoolName.toUpperCase(), { align: "right" });
       doc.fontSize(10).font("Helvetica").text("Academic Performance Division", { align: "right" });
       doc.moveDown();
@@ -579,7 +592,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       // --- Footer ---
       doc.fontSize(10).font("Helvetica-Bold").text("TEACHER SIGNATURE:", 50, 720);
-      doc.moveTo(180, 732).lineTo(350, 732).stroke("#000000");
+      
+      if (teacherSettings?.handwrittenSignature) {
+        try {
+          const sigBuffer = Buffer.from(teacherSettings.handwrittenSignature.split(",")[1], "base64");
+          doc.image(sigBuffer, 180, 690, { height: 40 });
+        } catch (e) {
+          doc.moveTo(180, 732).lineTo(350, 732).stroke("#000000");
+        }
+      } else {
+        doc.moveTo(180, 732).lineTo(350, 732).stroke("#000000");
+      }
+      
       doc.fontSize(8).font("Helvetica").text("This report is an official record of student mastery performance.", 50, 750, { align: "center", width: 495 });
 
       doc.end();
@@ -603,6 +627,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const mastery = await storage.getClassMastery(teacherId, id);
     if (!mastery) return res.status(404).json({ message: "Class not found" });
 
+    const teacherSettings = await storage.getSettings(teacherId);
+
     const reportsDir = ensureReportsDir();
     const fileName = `mastery_report_class_${id}_${Date.now()}.pdf`;
     const filePath = path.join(reportsDir, fileName);
@@ -614,7 +640,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       // --- Header Section ---
       doc.rect(0, 0, 595.28, 80).fill("#0F4C5C");
-      doc.fillColor("#FFFFFF").fontSize(24).font("Helvetica-Bold").text("CLASS PERFORMANCE REPORT", 50, 30);
+      
+      if (teacherSettings?.schoolLogo) {
+        try {
+          const logoBuffer = Buffer.from(teacherSettings.schoolLogo.split(",")[1], "base64");
+          doc.image(logoBuffer, 50, 15, { height: 50 });
+          doc.fillColor("#FFFFFF").fontSize(20).font("Helvetica-Bold").text("CLASS PERFORMANCE", 120, 32);
+        } catch (e) {
+          doc.fillColor("#FFFFFF").fontSize(24).font("Helvetica-Bold").text("CLASS PERFORMANCE REPORT", 50, 30);
+        }
+      } else {
+        doc.fillColor("#FFFFFF").fontSize(24).font("Helvetica-Bold").text("CLASS PERFORMANCE REPORT", 50, 30);
+      }
       
       doc.fillColor("#000000").font("Helvetica").fontSize(10);
       doc.moveDown(4);
@@ -633,6 +670,84 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       doc.font("Helvetica-Bold").text("AVG MASTERY:", 350, 145);
       doc.font("Helvetica").text(`${mastery.averageMastery.toFixed(1)}%`, 440, 145);
 
+      doc.moveDown(5);
+
+      // --- Performance Summary Blocks ---
+      const blockWidth = 150;
+      const blockHeight = 60;
+      const startX = 50;
+      const startY = 190;
+
+      // Performing
+      doc.rect(startX, startY, blockWidth, blockHeight).fill("#0F4C5C");
+      doc.fillColor("#FFFFFF").fontSize(10).font("Helvetica-Bold").text("PERFORMING", startX + 10, startY + 15);
+      doc.fontSize(18).text(String(mastery.performingCount), startX + 10, startY + 30);
+
+      // Mid-Level
+      doc.rect(startX + blockWidth + 22, startY, blockWidth, blockHeight).fill("#F4A300");
+      doc.fillColor("#FFFFFF").fontSize(10).font("Helvetica-Bold").text("MID-LEVEL", startX + blockWidth + 32, startY + 15);
+      doc.fontSize(18).text(String(mastery.midLevelCount), startX + blockWidth + 32, startY + 30);
+
+      // Remediation
+      doc.rect(startX + (blockWidth + 22) * 2, startY, blockWidth, blockHeight).fill("#E53E3E");
+      doc.fillColor("#FFFFFF").fontSize(10).font("Helvetica-Bold").text("REMEDIATION", startX + (blockWidth + 22) * 2 + 10, startY + 15);
+      doc.fontSize(18).text(String(mastery.remediationCount), startX + (blockWidth + 22) * 2 + 10, startY + 30);
+
+      doc.fillColor("#000000");
+      doc.moveDown(6);
+
+      // --- Student Breakdown Table ---
+      doc.fontSize(12).font("Helvetica-Bold").text("STUDENT PERFORMANCE BREAKDOWN", 50, 280);
+      doc.rect(50, 295, 495, 20).fill("#F1F5F9");
+      doc.fillColor("#475569").fontSize(9).text("STUDENT NAME", 65, 301);
+      doc.text("MASTERY", 400, 301, { align: "right", width: 60 });
+      doc.text("LEVEL", 480, 301, { align: "right", width: 50 });
+      
+      let currentY = 320;
+      
+      // Group students by level for the sections
+      const mastered = mastery.studentBreakdown.filter((s: any) => s.level === "Mastered" || s.level === "Proficient");
+      const developing = mastery.studentBreakdown.filter((s: any) => s.level === "Developing");
+      const support = mastery.studentBreakdown.filter((s: any) => s.level === "Needs Support");
+
+      const drawSection = (students: any[], title: string, color: string) => {
+        if (students.length === 0) return;
+        
+        if (currentY > 700) {
+          doc.addPage();
+          currentY = 50;
+        }
+
+        doc.fillColor(color).fontSize(11).font("Helvetica-Bold").text(title.toUpperCase(), 50, currentY);
+        currentY += 20;
+
+        students.forEach((s: any) => {
+          if (currentY > 750) {
+            doc.addPage();
+            currentY = 50;
+          }
+          doc.fillColor("#000000").fontSize(10).font("Helvetica").text(s.fullName, 65, currentY);
+          doc.font("Helvetica-Bold").text(`${s.overall.toFixed(1)}%`, 400, currentY, { align: "right", width: 60 });
+          doc.font("Helvetica").text(s.level, 480, currentY, { align: "right", width: 50 });
+          doc.moveTo(50, currentY + 15).lineTo(545, currentY + 15).stroke("#F1F5F9");
+          currentY += 25;
+        });
+        currentY += 10;
+      };
+
+      drawSection(mastered, "Mastered / Performing", "#0F4C5C");
+      drawSection(developing, "Developing / Mid-Level", "#F4A300");
+      drawSection(support, "Needs Support / Remediation", "#E53E3E");
+
+      // --- Footer ---
+      if (teacherSettings?.handwrittenSignature) {
+        try {
+          const sigBuffer = Buffer.from(teacherSettings.handwrittenSignature.split(",")[1], "base64");
+          doc.image(sigBuffer, 180, currentY > 700 ? (doc.addPage(), 50) : currentY + 20, { height: 40 });
+        } catch (e) {}
+      }
+
+      doc.fontSize(8).font("Helvetica").text("Generated by Mastery Education SaaS. This report reflects live classroom performance data.", 50, 780, { align: "center", width: 495 });
       doc.moveDown(5);
 
       // --- Performance Summary Blocks ---

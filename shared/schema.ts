@@ -126,6 +126,8 @@ export const studentScores = pgTable(
 export const settings = pgTable("settings", {
   teacherId: varchar("teacher_id").primaryKey(),
   schoolName: text("school_name").notNull().default(""),
+  schoolLogo: text("school_logo"), // base64 or URL
+  handwrittenSignature: text("handwritten_signature"), // base64 or URL
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

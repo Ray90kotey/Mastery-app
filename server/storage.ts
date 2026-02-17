@@ -204,6 +204,8 @@ export class DatabaseStorage implements IStorage {
         target: settings.teacherId,
         set: {
           schoolName: input.schoolName,
+          schoolLogo: input.schoolLogo,
+          handwrittenSignature: input.handwrittenSignature,
         },
       })
       .returning();
