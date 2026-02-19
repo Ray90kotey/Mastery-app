@@ -1,4 +1,4 @@
-import { Express, Request, Response, NextFunction } from "express";
+import { Express, Request, Response, NextFunction, RequestHandler } from "express";
 import { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
@@ -6,11 +6,7 @@ import { z } from "zod";
 import PDFDocument from "pdfkit";
 import fs from "fs";
 import path from "path";
-
-function isAuthenticated(req: Request, res: Response, next: NextFunction) {
-  if (req.isAuthenticated()) return next();
-  res.status(401).json({ message: "Unauthorized" });
-}
+import { isAuthenticated } from "./replit_integrations/auth/replitAuth";
 
 function getTeacherId(req: any): string {
   return req.user?.claims?.sub || "demo-teacher";
