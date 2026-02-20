@@ -90,10 +90,16 @@ export async function registerRoutes(_server: Server, app: Express) {
 
   // Students
   app.get(api.students.listByClass.path, isAuthenticated, async (req, res) => {
-    const teacherId = getTeacherId(req);
-    const classId = Number(req.params.classId);
-    const studentsList = await storage.listStudents(teacherId, classId);
-    res.json(studentsList);
+    try {
+      const teacherId = getTeacherId(req);
+      const classId = Number(req.params.classId);
+      const studentsList = await storage.listStudentsByClass(teacherId, classId);
+      if (studentsList === undefined) return res.status(404).json({ message: "Class not found" });
+      res.json(studentsList);
+    } catch (err) {
+      console.error("Error listing students:", err);
+      res.status(500).json({ message: "Internal server error" });
+    }
   });
 
   app.post(api.students.create.path, isAuthenticated, async (req, res) => {
@@ -101,11 +107,13 @@ export async function registerRoutes(_server: Server, app: Express) {
       const teacherId = getTeacherId(req);
       const classId = Number(req.params.classId);
       const body = api.students.create.input.parse(req.body);
-      const created = await storage.createStudent(teacherId, { ...body, classId });
+      const created = await storage.createStudent(teacherId, classId, body);
+      if (!created) return res.status(404).json({ message: "Class not found" });
       res.status(201).json(created);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: "Validation failed", errors: err.errors });
-      throw err;
+      console.error("Error creating student:", err);
+      res.status(500).json({ message: "Internal server error" });
     }
   });
 
