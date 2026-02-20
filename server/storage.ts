@@ -10,6 +10,8 @@ import {
   students,
   terms,
   weeks,
+  subjects,
+  classSubjects,
   type AcademicYearResponse,
   type AssessmentResponse,
   type ClassResponse,
@@ -31,12 +33,15 @@ import {
   type TermResponse,
   type UpsertTeacherSettingsRequest,
   type WeekResponse,
+  type SubjectResponse,
+  type InsertSubject,
+  type InsertClassSubject,
   assessmentTypeWeights,
   masteryBands,
   type AssessmentType,
   type TrendIndicator,
 } from "@shared/schema";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 
 export interface IStorage {
   // Settings
@@ -72,6 +77,12 @@ export interface IStorage {
     updates: Partial<Omit<CreateStudentRequest, "classId">>,
   ): Promise<StudentResponse | undefined>;
   deleteStudent(teacherId: string, id: number): Promise<boolean>;
+
+  // Subjects
+  listSubjects(teacherId: string): Promise<SubjectResponse[]>;
+  createSubject(teacherId: string, input: Omit<InsertSubject, "teacherId">): Promise<SubjectResponse>;
+  listClassSubjects(teacherId: string, classId: number): Promise<(any)[] | undefined>;
+  assignSubjectToClass(teacherId: string, classId: number, input: Omit<InsertClassSubject, "classId">): Promise<any | undefined>;
 
   // Academic years
   listAcademicYears(teacherId: string): Promise<AcademicYearResponse[]>;
@@ -324,6 +335,40 @@ export class DatabaseStorage implements IStorage {
 
     const [deleted] = await db.delete(students).where(eq(students.id, id)).returning();
     return !!deleted;
+  }
+
+  async listSubjects(teacherId: string): Promise<SubjectResponse[]> {
+    return await db.select().from(subjects).where(eq(subjects.teacherId, teacherId)).orderBy(subjects.name);
+  }
+
+  async createSubject(teacherId: string, input: Omit<InsertSubject, "teacherId">): Promise<SubjectResponse> {
+    const [created] = await db.insert(subjects).values({ ...input, teacherId }).returning();
+    return created;
+  }
+
+  async listClassSubjects(teacherId: string, classId: number): Promise<any[] | undefined> {
+    const [cls] = await db.select().from(classes).where(and(eq(classes.id, classId), eq(classes.teacherId, teacherId)));
+    if (!cls) return undefined;
+
+    return await db
+      .select({
+        id: classSubjects.id,
+        classId: classSubjects.classId,
+        subjectId: classSubjects.subjectId,
+        academicYearId: classSubjects.academicYearId,
+        subjectName: subjects.name,
+      })
+      .from(classSubjects)
+      .innerJoin(subjects, eq(classSubjects.subjectId, subjects.id))
+      .where(eq(classSubjects.classId, classId));
+  }
+
+  async assignSubjectToClass(teacherId: string, classId: number, input: Omit<InsertClassSubject, "classId">): Promise<any | undefined> {
+    const [cls] = await db.select().from(classes).where(and(eq(classes.id, classId), eq(classes.teacherId, teacherId)));
+    if (!cls) return undefined;
+
+    const [created] = await db.insert(classSubjects).values({ ...input, classId }).returning();
+    return created;
   }
 
   async listAcademicYears(teacherId: string): Promise<AcademicYearResponse[]> {

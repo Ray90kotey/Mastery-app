@@ -8,6 +8,8 @@ import { useClasses } from "@/hooks/use-classes";
 import { useStudentsByClass } from "@/hooks/use-students";
 import { useAssessmentsByClass, useCreateAssessment, useDeleteAssessment, useUpdateAssessment } from "@/hooks/use-assessments";
 import { useUpsertScores } from "@/hooks/use-scores";
+import { useSubjects } from "@/hooks/use-subjects";
+import { useAcademicYears } from "@/hooks/use-academic";
 import type { AssessmentResponse, StudentResponse } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -19,7 +21,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { ClipboardList, Plus, Save, Trash2 } from "lucide-react";
+import { ClipboardList, Plus, Save, Trash2, Filter } from "lucide-react";
 
 const ASSESSMENT_TYPES = ["Classwork", "Quiz", "Test", "Project"] as const;
 
@@ -34,36 +36,33 @@ export default function AssessmentsPage() {
   const { toast } = useToast();
 
   const classesQ = useClasses();
+  const subjectsQ = useSubjects();
+  const academicYearsQ = useAcademicYears();
   const [classId, setClassId] = useState<number | null>(null);
-
-  const studentsQ = useStudentsByClass(classId);
-  const assessmentsQ = useAssessmentsByClass(classId);
-
-  const createAssessment = useCreateAssessment();
-  const updateAssessment = useUpdateAssessment();
-  const deleteAssessment = useDeleteAssessment();
-
-  const upsertScores = useUpsertScores();
-
-  const [assessmentOpen, setAssessmentOpen] = useState(false);
-  const [editingAssessment, setEditingAssessment] = useState<AssessmentResponse | null>(null);
-
-  const [assessmentForm, setAssessmentForm] = useState({
-    title: "",
-    type: "Quiz" as (typeof ASSESSMENT_TYPES)[number],
-    totalScore: 20,
-    date: formatDateInput(new Date()),
-    lessonId: "",
-    outcomeId: "",
-  });
+  const [filterSubjectId, setFilterSubjectId] = useState<string>("all");
+  const [filterYearId, setFilterYearId] = useState<string>("all");
 
   const [selectedAssessmentId, setSelectedAssessmentId] = useState<number | null>(null);
+
   const selectedAssessment = useMemo(
     () => (assessmentsQ.data ?? []).find((a) => a.id === selectedAssessmentId) ?? null,
     [assessmentsQ.data, selectedAssessmentId],
   );
 
   const [scoreDrafts, setScoreDrafts] = useState<Record<number, string>>({});
+
+  const filteredAssessments = useMemo(() => {
+    let list = assessmentsQ.data ?? [];
+    if (filterSubjectId !== "all") {
+      // @ts-ignore - subjectId exists in schema
+      list = list.filter(a => (a as any).subjectId === Number(filterSubjectId));
+    }
+    if (filterYearId !== "all") {
+      // @ts-ignore
+      list = list.filter(a => (a as any).academicYearId === Number(filterYearId));
+    }
+    return list;
+  }, [assessmentsQ.data, filterSubjectId, filterYearId]);
 
   const studentsById = useMemo(() => {
     const map = new Map<number, StudentResponse>();
@@ -88,8 +87,33 @@ export default function AssessmentsPage() {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-          <div className="min-w-[240px]">
-            <Label className="sr-only">Class</Label>
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <Select value={filterSubjectId} onValueChange={setFilterSubjectId}>
+              <SelectTrigger className="w-[140px] h-9 rounded-xl text-xs">
+                <SelectValue placeholder="All Subjects" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                <SelectItem value="all">All Subjects</SelectItem>
+                {subjectsQ.data?.map(s => (
+                  <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={filterYearId} onValueChange={setFilterYearId}>
+              <SelectTrigger className="w-[140px] h-9 rounded-xl text-xs">
+                <SelectValue placeholder="All Years" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                <SelectItem value="all">All Years</SelectItem>
+                {academicYearsQ.data?.map(y => (
+                  <SelectItem key={y.id} value={String(y.id)}>{y.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="min-w-[200px]">
             <Select
               value={classId ? String(classId) : ""}
               onValueChange={(v) => {
@@ -99,8 +123,8 @@ export default function AssessmentsPage() {
                 setScoreDrafts({});
               }}
             >
-              <SelectTrigger className="rounded-xl bg-card/70 border-border/70" data-testid="assessments-class-select">
-                <SelectValue placeholder={classesQ.isLoading ? "Loading classes..." : "Select class"} />
+              <SelectTrigger className="rounded-xl h-9 bg-card/70 border-border/70 text-xs" data-testid="assessments-class-select">
+                <SelectValue placeholder={classesQ.isLoading ? "Loading..." : "Select class"} />
               </SelectTrigger>
               <SelectContent className="rounded-xl">
                 {(classesQ.data ?? []).map((c) => (
@@ -113,6 +137,7 @@ export default function AssessmentsPage() {
           </div>
 
           <Button
+            size="sm"
             onClick={() => {
               setEditingAssessment(null);
               setAssessmentForm({
@@ -127,10 +152,10 @@ export default function AssessmentsPage() {
             }}
             disabled={!classId}
             data-testid="assessment-create-open"
-            className="rounded-xl shadow-sm hover:shadow-md transition-all bg-gradient-to-r from-primary to-primary/85"
+            className="rounded-xl h-9 px-3 text-xs shadow-sm hover:shadow-md transition-all bg-gradient-to-r from-primary to-primary/85"
           >
-            <Plus className="h-4.5 w-4.5 mr-2" />
-            New assessment
+            <Plus className="h-4 w-4 mr-1.5" />
+            New
           </Button>
         </div>
       </div>
@@ -184,7 +209,7 @@ export default function AssessmentsPage() {
                 />
               ) : (
                 <div className="space-y-2" data-testid="assessments-list">
-                  {assessmentsQ.data!.map((a) => {
+                  {filteredAssessments.map((a) => {
                     const active = a.id === selectedAssessmentId;
                     const date = a.date ? new Date(a.date as any) : null;
                     return (

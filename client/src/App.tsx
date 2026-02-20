@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import AppIndexPage from "@/pages/AppIndexPage";
 import DashboardPage from "@/pages/DashboardPage";
 import ClassesPage from "@/pages/ClassesPage";
+import SubjectsPage from "@/pages/SubjectsPage";
 import AcademicSetupPage from "@/pages/AcademicSetupPage";
 import AssessmentsPage from "@/pages/AssessmentsPage";
 import ReportsPage from "@/pages/ReportsPage";
@@ -22,6 +23,7 @@ function Router() {
       {/* App shell pages */}
       <Route path="/app" component={DashboardPage} />
       <Route path="/app/classes" component={ClassesPage} />
+      <Route path="/app/subjects" component={SubjectsPage} />
       <Route path="/app/academic" component={AcademicSetupPage} />
       <Route path="/app/assessments" component={AssessmentsPage} />
       <Route path="/app/reports" component={ReportsPage} />

@@ -16,8 +16,11 @@ import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { GraduationCap, Plus, Search, Trash2, UserPlus, Users2, Pencil } from "lucide-react";
+import { useSubjects, useClassSubjects, useAssignSubject } from "@/hooks/use-subjects";
+import { useAcademicYears } from "@/hooks/use-academic";
+import { GraduationCap, Plus, Search, Trash2, UserPlus, Users2, Pencil, BookOpen, ImageIcon, Loader2 } from "lucide-react";
 
+// Helper for dates
 function safeDate(d: any) {
   const dt = d ? new Date(d) : null;
   return dt && !Number.isNaN(dt.getTime()) ? dt : null;
@@ -27,15 +30,38 @@ export default function ClassesPage() {
   const { toast } = useToast();
 
   const classesQ = useClasses();
+  const subjectsQ = useSubjects();
+  const academicYearsQ = useAcademicYears();
   const createClass = useCreateClass();
   const updateClass = useUpdateClass();
   const deleteClass = useDeleteClass();
 
   const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
+  const classSubjectsQ = useClassSubjects(selectedClassId);
+  const assignSubject = useAssignSubject();
+  const [assignSubjectOpen, setAssignSubjectOpen] = useState(false);
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string>("");
+  const [selectedYearId, setSelectedYearId] = useState<string>("");
+
   const studentsQ = useStudentsByClass(selectedClassId);
   const createStudent = useCreateStudent();
   const updateStudent = useUpdateStudent();
   const deleteStudent = useDeleteStudent();
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, isEdit: boolean) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = reader.result as string;
+      if (isEdit) {
+        setEditStudentForm(prev => ({ ...prev, image: base64 }));
+      } else {
+        setStudentForm(prev => ({ ...prev, image: base64 }));
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const [classSearch, setClassSearch] = useState("");
   const classesFiltered = useMemo(() => {
@@ -69,6 +95,7 @@ export default function ClassesPage() {
     parentName: "",
     parentEmail: "",
     parentPhone: "",
+    image: "",
   });
 
   const [editStudent, setEditStudent] = useState<StudentResponse | null>(null);
@@ -77,6 +104,7 @@ export default function ClassesPage() {
     parentName: "",
     parentEmail: "",
     parentPhone: "",
+    image: "",
   });
 
   return (
@@ -322,9 +350,25 @@ export default function ClassesPage() {
               <h2 className="text-xl font-extrabold" data-testid="students-header">
                 {selectedClass ? selectedClass.name : "Select a class"}
               </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Add students and parent contacts for reporting.
-              </p>
+              <div className="flex flex-wrap gap-2 mt-1">
+                {classSubjectsQ.data?.map(cs => (
+                  <span key={cs.id} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary border border-primary/20">
+                    <BookOpen className="h-3 w-3" />
+                    {cs.subjectName}
+                  </span>
+                ))}
+                {selectedClassId && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-6 rounded-full px-2 text-[10px] gap-1"
+                    onClick={() => setAssignSubjectOpen(true)}
+                  >
+                    <Plus className="h-3 w-3" />
+                    Assign Subject
+                  </Button>
+                )}
+              </div>
             </div>
 
             <Dialog open={createStudentOpen} onOpenChange={setCreateStudentOpen}>
@@ -355,6 +399,32 @@ export default function ClassesPage() {
                       className="rounded-xl"
                       data-testid="student-create-fullname"
                     />
+                  </div>
+
+                  <div className="sm:col-span-2 space-y-2">
+                    <Label>Student Photo</Label>
+                    <div className="flex items-center gap-4">
+                      {studentForm.image ? (
+                        <div className="relative h-16 w-16 rounded-xl overflow-hidden border border-border">
+                          <img src={studentForm.image} alt="Preview" className="h-full w-full object-cover" />
+                          <button 
+                            onClick={() => setStudentForm(s => ({ ...s, image: "" }))}
+                            className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+                          >
+                            <Trash2 className="h-4 w-4 text-white" />
+                          </button>
+                        </div>
+                      ) : (
+                        <Label className="h-16 w-16 rounded-xl border-2 border-dashed border-muted-foreground/25 flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 transition-colors">
+                          <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                          <span className="text-[10px] text-muted-foreground mt-1">Upload</span>
+                          <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, false)} />
+                        </Label>
+                      )}
+                      <p className="text-xs text-muted-foreground flex-1">
+                        Optional: Add a photo for quick identification in reports and lists.
+                      </p>
+                    </div>
                   </div>
 
                   <div className="space-y-2">
@@ -416,8 +486,9 @@ export default function ClassesPage() {
                           parentName: studentForm.parentName.trim() || null,
                           parentEmail: studentForm.parentEmail.trim() || null,
                           parentPhone: studentForm.parentPhone.trim() || null,
+                          image: studentForm.image || null,
                         } as any);
-                        setStudentForm({ fullName: "", parentName: "", parentEmail: "", parentPhone: "" });
+                        setStudentForm({ fullName: "", parentName: "", parentEmail: "", parentPhone: "", image: "" });
                         setCreateStudentOpen(false);
                         toast({ title: "Student added" });
                       } catch (e: any) {
@@ -434,6 +505,66 @@ export default function ClassesPage() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+
+            {selectedClassId && (
+              <Dialog open={assignSubjectOpen} onOpenChange={setAssignSubjectOpen}>
+                <DialogContent className="rounded-2xl sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Assign Subject to {selectedClass?.name}</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label>Subject</Label>
+                      <Select value={selectedSubjectId} onValueChange={setSelectedSubjectId}>
+                        <SelectTrigger className="rounded-xl">
+                          <SelectValue placeholder="Select subject" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          {subjectsQ.data?.map(s => (
+                            <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Academic Year</Label>
+                      <Select value={selectedYearId} onValueChange={setSelectedYearId}>
+                        <SelectTrigger className="rounded-xl">
+                          <SelectValue placeholder="Select year" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          {academicYearsQ.data?.map(y => (
+                            <SelectItem key={y.id} value={String(y.id)}>{y.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="secondary" onClick={() => setAssignSubjectOpen(false)} className="rounded-xl">Cancel</Button>
+                    <Button 
+                      disabled={!selectedSubjectId || !selectedYearId || assignSubject.isPending}
+                      className="rounded-xl"
+                      onClick={async () => {
+                        try {
+                          await assignSubject.mutateAsync({
+                            classId: selectedClassId!,
+                            subjectId: Number(selectedSubjectId),
+                            academicYearId: Number(selectedYearId)
+                          });
+                          setAssignSubjectOpen(false);
+                          toast({ title: "Subject assigned" });
+                        } catch (e: any) {
+                          toast({ title: "Error", description: e.message, variant: "destructive" });
+                        }
+                      }}
+                    >
+                      {assignSubject.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Assign"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            )}
           </div>
 
           <Separator className="my-5" />
@@ -490,7 +621,18 @@ export default function ClassesPage() {
                 <TableBody>
                   {studentsQ.data!.map((s) => (
                     <TableRow key={s.id} data-testid={`student-row-${s.id}`}>
-                      <TableCell className="font-semibold">{s.fullName}</TableCell>
+                      <TableCell className="font-semibold">
+                        <div className="flex items-center gap-3">
+                          {s.image ? (
+                            <img src={s.image} alt={s.fullName} className="h-8 w-8 rounded-full object-cover border border-border" />
+                          ) : (
+                            <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold">
+                              {s.fullName.substring(0, 2).toUpperCase()}
+                            </div>
+                          )}
+                          <span>{s.fullName}</span>
+                        </div>
+                      </TableCell>
                       <TableCell className="hidden md:table-cell text-muted-foreground">
                         {s.parentName || "—"}
                       </TableCell>

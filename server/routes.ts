@@ -284,6 +284,48 @@ export async function registerRoutes(_server: Server, app: Express) {
     }
   });
 
+  // Subjects
+  app.get(api.subjects.list.path, isAuthenticated, async (req, res) => {
+    const teacherId = getTeacherId(req);
+    const subjectsList = await storage.listSubjects(teacherId);
+    res.json(subjectsList);
+  });
+
+  app.post(api.subjects.create.path, isAuthenticated, async (req, res) => {
+    try {
+      const teacherId = getTeacherId(req);
+      const body = api.subjects.create.input.parse(req.body);
+      const created = await storage.createSubject(teacherId, body);
+      res.status(201).json(created);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: "Validation failed", errors: err.errors });
+      throw err;
+    }
+  });
+
+  // Class Subjects
+  app.get(api.classSubjects.list.path, isAuthenticated, async (req, res) => {
+    const teacherId = getTeacherId(req);
+    const classId = Number(req.params.classId);
+    const list = await storage.listClassSubjects(teacherId, classId);
+    if (list === undefined) return res.status(404).json({ message: "Class not found" });
+    res.json(list);
+  });
+
+  app.post(api.classSubjects.assign.path, isAuthenticated, async (req, res) => {
+    try {
+      const teacherId = getTeacherId(req);
+      const classId = Number(req.params.classId);
+      const body = api.classSubjects.assign.input.parse(req.body);
+      const created = await storage.assignSubjectToClass(teacherId, classId, body);
+      if (!created) return res.status(404).json({ message: "Class not found" });
+      res.status(201).json(created);
+    } catch (err) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: "Validation failed", errors: err.errors });
+      throw err;
+    }
+  });
+
   // Mastery
   app.get(api.mastery.student.path, isAuthenticated, async (req: any, res) => {
     const teacherId = getTeacherId(req);

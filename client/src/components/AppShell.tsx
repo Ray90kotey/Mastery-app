@@ -42,6 +42,7 @@ export default function AppShell({ children }: PropsWithChildren) {
     () => [
       { href: "/app", label: "Dashboard", icon: BarChart3, testId: "nav-dashboard" },
       { href: "/app/classes", label: "Classes", icon: Users, testId: "nav-classes" },
+      { href: "/app/subjects", label: "Subjects", icon: BookOpen, testId: "nav-subjects" },
       { href: "/app/academic", label: "Academic Setup", icon: BookOpen, testId: "nav-academic" },
       { href: "/app/assessments", label: "Assessments", icon: ClipboardList, testId: "nav-assessments" },
       { href: "/app/reports", label: "Reports", icon: FileText, testId: "nav-reports" },

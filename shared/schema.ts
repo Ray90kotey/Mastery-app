@@ -32,11 +32,34 @@ export const students = pgTable(
     parentName: text("parent_name"),
     parentEmail: text("parent_email"),
     parentPhone: text("parent_phone"),
+    image: text("image"), // base64 student photo
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => [
     uniqueIndex("students_class_fullname_uq").on(t.classId, t.fullName),
   ],
+);
+
+export const subjects = pgTable(
+  "subjects",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    teacherId: varchar("teacher_id").notNull(),
+    name: text("name").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("subjects_teacher_name_uq").on(t.teacherId, t.name)],
+);
+
+export const classSubjects = pgTable(
+  "class_subjects",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    classId: integer("class_id").notNull(),
+    subjectId: integer("subject_id").notNull(),
+    academicYearId: integer("academic_year_id").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  }
 );
 
 export const academicYears = pgTable(
@@ -216,6 +239,14 @@ export const insertStudentSchema = createInsertSchema(students).omit({
   id: true,
   createdAt: true,
 });
+export const insertSubjectSchema = createInsertSchema(subjects).omit({
+  id: true,
+  createdAt: true,
+});
+export const insertClassSubjectSchema = createInsertSchema(classSubjects).omit({
+  id: true,
+  createdAt: true,
+});
 export const insertAcademicYearSchema = createInsertSchema(academicYears).omit({
   id: true,
   createdAt: true,
@@ -259,6 +290,13 @@ export type InsertStudent = z.infer<typeof insertStudentSchema>;
 export type CreateStudentRequest = InsertStudent;
 export type UpdateStudentRequest = Partial<InsertStudent>;
 export type StudentResponse = Student;
+
+export type Subject = typeof subjects.$inferSelect;
+export type InsertSubject = z.infer<typeof insertSubjectSchema>;
+export type SubjectResponse = Subject;
+
+export type ClassSubject = typeof classSubjects.$inferSelect;
+export type InsertClassSubject = z.infer<typeof insertClassSubjectSchema>;
 
 export type AcademicYear = typeof academicYears.$inferSelect;
 export type InsertAcademicYear = z.infer<typeof insertAcademicYearSchema>;

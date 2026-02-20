@@ -9,6 +9,8 @@ import {
   insertStudentScoreSchema,
   insertTermSchema,
   insertWeekSchema,
+  insertSubjectSchema,
+  insertClassSubjectSchema,
   type AcademicYear,
   type Assessment,
   type Class,
@@ -18,6 +20,8 @@ import {
   type StudentMasteryResponse,
   type StudentScore,
   type TeacherSettings,
+  type Subject,
+  type ClassSubject,
   upsertSettingsSchema,
 } from "./schema";
 
@@ -144,6 +148,46 @@ export const api = {
       path: "/api/students/:id" as const,
       responses: {
         204: z.void(),
+        404: errorSchemas.notFound,
+      },
+    },
+  },
+
+  subjects: {
+    list: {
+      method: "GET" as const,
+      path: "/api/subjects" as const,
+      responses: {
+        200: z.array(z.custom<Subject>()),
+      },
+    },
+    create: {
+      method: "POST" as const,
+      path: "/api/subjects" as const,
+      input: insertSubjectSchema.omit({ teacherId: true }),
+      responses: {
+        201: z.custom<Subject>(),
+        400: errorSchemas.validation,
+      },
+    },
+  },
+
+  classSubjects: {
+    list: {
+      method: "GET" as const,
+      path: "/api/classes/:classId/subjects" as const,
+      responses: {
+        200: z.array(z.custom<ClassSubject & { subjectName: string }>()),
+        404: errorSchemas.notFound,
+      },
+    },
+    assign: {
+      method: "POST" as const,
+      path: "/api/classes/:classId/subjects" as const,
+      input: insertClassSubjectSchema.omit({ classId: true }),
+      responses: {
+        201: z.custom<ClassSubject>(),
+        400: errorSchemas.validation,
         404: errorSchemas.notFound,
       },
     },
