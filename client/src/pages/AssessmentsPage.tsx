@@ -39,10 +39,27 @@ export default function AssessmentsPage() {
   const subjectsQ = useSubjects();
   const academicYearsQ = useAcademicYears();
   const [classId, setClassId] = useState<number | null>(null);
+  const assessmentsQ = useAssessmentsByClass(classId ?? undefined);
+  const studentsQ = useStudentsByClass(classId ?? undefined);
   const [filterSubjectId, setFilterSubjectId] = useState<string>("all");
   const [filterYearId, setFilterYearId] = useState<string>("all");
 
   const [selectedAssessmentId, setSelectedAssessmentId] = useState<number | null>(null);
+  const [assessmentOpen, setAssessmentOpen] = useState(false);
+  const [editingAssessment, setEditingAssessment] = useState<AssessmentResponse | null>(null);
+  const [assessmentForm, setAssessmentForm] = useState({
+    title: "",
+    type: "Quiz" as const,
+    totalScore: 20,
+    date: formatDateInput(new Date()),
+    lessonId: "",
+    outcomeId: "",
+  });
+
+  const createAssessment = useCreateAssessment();
+  const updateAssessment = useUpdateAssessment();
+  const deleteAssessment = useDeleteAssessment();
+  const upsertScores = useUpsertScores();
 
   const selectedAssessment = useMemo(
     () => (assessmentsQ.data ?? []).find((a) => a.id === selectedAssessmentId) ?? null,
