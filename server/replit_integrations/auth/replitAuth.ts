@@ -133,8 +133,14 @@ export async function setupAuth(app: Express) {
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const user = req.user as any;
 
-  if (!req.isAuthenticated() || !user.expires_at) {
+  if (!req.isAuthenticated()) {
     return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  // If expires_at is not set, allow the request to proceed
+  // This handles cases where the JWT doesn't include an expiration
+  if (!user || !user.expires_at) {
+    return next();
   }
 
   const now = Math.floor(Date.now() / 1000);
