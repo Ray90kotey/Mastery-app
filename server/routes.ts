@@ -155,7 +155,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   app.get(api.academic.terms.listByYear.path, isAuthenticated, async (req, res) => {
     const teacherId = getTeacherId(req);
     const yearId = Number(req.params.academicYearId);
-    const termsList = await storage.listTerms(teacherId, yearId);
+    const termsList = await storage.listTermsByYear(teacherId, yearId);
     res.json(termsList);
   });
 
@@ -164,7 +164,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       const teacherId = getTeacherId(req);
       const yearId = Number(req.params.academicYearId);
       const body = api.academic.terms.create.input.parse(req.body);
-      const created = await storage.createTerm(teacherId, { ...body, academicYearId: yearId });
+      const created = await storage.createTerm(teacherId, yearId, body);
       res.status(201).json(created);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: "Validation failed", errors: err.errors });
@@ -175,7 +175,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   app.get(api.academic.weeks.listByTerm.path, isAuthenticated, async (req, res) => {
     const teacherId = getTeacherId(req);
     const termId = Number(req.params.termId);
-    const weeksList = await storage.listWeeks(teacherId, termId);
+    const weeksList = await storage.listWeeksByTerm(teacherId, termId);
     res.json(weeksList);
   });
 
@@ -184,7 +184,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       const teacherId = getTeacherId(req);
       const termId = Number(req.params.termId);
       const body = api.academic.weeks.create.input.parse(req.body);
-      const created = await storage.createWeek(teacherId, { ...body, termId });
+      const created = await storage.createWeek(teacherId, termId, body);
       res.status(201).json(created);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: "Validation failed", errors: err.errors });
@@ -195,7 +195,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   app.get(api.academic.lessons.listByWeek.path, isAuthenticated, async (req, res) => {
     const teacherId = getTeacherId(req);
     const weekId = Number(req.params.weekId);
-    const lessonsList = await storage.listLessons(teacherId, weekId);
+    const lessonsList = await storage.listLessonsByWeek(teacherId, weekId);
     res.json(lessonsList);
   });
 
@@ -204,7 +204,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       const teacherId = getTeacherId(req);
       const weekId = Number(req.params.weekId);
       const body = api.academic.lessons.create.input.parse(req.body);
-      const created = await storage.createLesson(teacherId, { ...body, weekId });
+      const created = await storage.createLesson(teacherId, weekId, body);
       res.status(201).json(created);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: "Validation failed", errors: err.errors });
@@ -215,7 +215,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   app.get(api.academic.outcomes.listByLesson.path, isAuthenticated, async (req, res) => {
     const teacherId = getTeacherId(req);
     const lessonId = Number(req.params.lessonId);
-    const outcomesList = await storage.listOutcomes(teacherId, lessonId);
+    const outcomesList = await storage.listOutcomesByLesson(teacherId, lessonId);
     res.json(outcomesList);
   });
 
@@ -224,7 +224,7 @@ export async function registerRoutes(_server: Server, app: Express) {
       const teacherId = getTeacherId(req);
       const lessonId = Number(req.params.lessonId);
       const body = api.academic.outcomes.create.input.parse(req.body);
-      const created = await storage.createOutcome(teacherId, { ...body, lessonId });
+      const created = await storage.createOutcome(teacherId, lessonId, body);
       res.status(201).json(created);
     } catch (err) {
       if (err instanceof z.ZodError) return res.status(400).json({ message: "Validation failed", errors: err.errors });
