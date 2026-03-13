@@ -137,9 +137,8 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     return res.status(401).json({ message: "Unauthorized" });
   }
 
-  // If expires_at is not set, allow the request to proceed
-  // This handles cases where the JWT doesn't include an expiration
-  if (!user || !user.expires_at) {
+  // User is authenticated. If expires_at is not set, allow the request
+  if (!user.expires_at) {
     return next();
   }
 
