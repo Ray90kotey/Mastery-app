@@ -338,6 +338,32 @@ export class DatabaseStorage implements IStorage {
   }
 
   async listSubjects(teacherId: string): Promise<SubjectResponse[]> {
+    // Ensure default subjects exist
+    const defaultSubjectNames = [
+      "Maths",
+      "Science",
+      "RME",
+      "French",
+      "English",
+      "Social Studies",
+      "Creative Arts",
+      "Career Technology",
+      "Ghanaian Language",
+      "Computing",
+    ];
+
+    const existing = await db
+      .select({ name: subjects.name })
+      .from(subjects)
+      .where(eq(subjects.teacherId, teacherId));
+    const existingNames = new Set(existing.map((e) => e.name));
+
+    for (const name of defaultSubjectNames) {
+      if (!existingNames.has(name)) {
+        await db.insert(subjects).values({ teacherId, name }).onConflictDoNothing();
+      }
+    }
+
     return await db.select().from(subjects).where(eq(subjects.teacherId, teacherId)).orderBy(subjects.name);
   }
 
