@@ -236,7 +236,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   app.get(api.assessments.listByClass.path, isAuthenticated, async (req, res) => {
     const teacherId = getTeacherId(req);
     const classId = Number(req.params.classId);
-    const assessmentsList = await storage.listAssessments(teacherId, classId);
+    const assessmentsList = await storage.listAssessmentsByClass(teacherId, classId);
     res.json(assessmentsList);
   });
 
@@ -244,7 +244,12 @@ export async function registerRoutes(_server: Server, app: Express) {
     try {
       const teacherId = getTeacherId(req);
       const classId = Number(req.params.classId);
-      const body = api.assessments.create.input.parse(req.body);
+      // Convert date string to Date object before validation
+      const bodyWithDateParsed = {
+        ...req.body,
+        date: req.body.date ? new Date(req.body.date) : new Date(),
+      };
+      const body = api.assessments.create.input.parse(bodyWithDateParsed);
       const created = await storage.createAssessment(teacherId, { ...body, classId });
       res.status(201).json(created);
     } catch (err) {
