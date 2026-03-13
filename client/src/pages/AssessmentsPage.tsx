@@ -9,7 +9,7 @@ import { useStudentsByClass } from "@/hooks/use-students";
 import { useAssessmentsByClass, useCreateAssessment, useDeleteAssessment, useUpdateAssessment } from "@/hooks/use-assessments";
 import { useUpsertScores } from "@/hooks/use-scores";
 import { useSubjects } from "@/hooks/use-subjects";
-import { useAcademicYears } from "@/hooks/use-academic";
+import { useAcademicYears, useTermsByYear, useWeeksByTerm, useLessonsByWeek, useOutcomesByLesson } from "@/hooks/use-academic";
 import type { AssessmentResponse, StudentResponse } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -52,9 +52,17 @@ export default function AssessmentsPage() {
     type: "Quiz" as const,
     totalScore: 20,
     date: formatDateInput(new Date()),
+    yearId: "",
+    termId: "",
+    weekId: "",
     lessonId: "",
     outcomeId: "",
   });
+
+  const termsQ = useTermsByYear(assessmentForm.yearId ? Number(assessmentForm.yearId) : undefined);
+  const weeksQ = useWeeksByTerm(assessmentForm.termId ? Number(assessmentForm.termId) : undefined);
+  const lessonsQ = useLessonsByWeek(assessmentForm.weekId ? Number(assessmentForm.weekId) : undefined);
+  const outcomesQ = useOutcomesByLesson(assessmentForm.lessonId ? Number(assessmentForm.lessonId) : undefined);
 
   const createAssessment = useCreateAssessment();
   const updateAssessment = useUpdateAssessment();
@@ -162,6 +170,9 @@ export default function AssessmentsPage() {
                 type: "Quiz",
                 totalScore: 20,
                 date: formatDateInput(new Date()),
+                yearId: "",
+                termId: "",
+                weekId: "",
                 lessonId: "",
                 outcomeId: "",
               });
@@ -266,6 +277,9 @@ export default function AssessmentsPage() {
                                   type: (a.type as any) ?? "Quiz",
                                   totalScore: a.totalScore ?? 20,
                                   date: a.date ? formatDateInput(new Date(a.date as any)) : formatDateInput(new Date()),
+                                  yearId: "",
+                                  termId: "",
+                                  weekId: "",
                                   lessonId: a.lessonId ? String(a.lessonId) : "",
                                   outcomeId: a.outcomeId ? String(a.outcomeId) : "",
                                 });
@@ -536,30 +550,107 @@ export default function AssessmentsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="assLessonId">Lesson ID (optional)</Label>
-              <Input
-                id="assLessonId"
+              <Label>Academic Year (optional)</Label>
+              <Select
+                value={assessmentForm.yearId}
+                onValueChange={(v) => setAssessmentForm((p) => ({ ...p, yearId: v, termId: "", weekId: "", lessonId: "", outcomeId: "" }))}
+              >
+                <SelectTrigger className="rounded-xl" data-testid="assessment-form-year">
+                  <SelectValue placeholder="Select year" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  <SelectItem value="">— Select year —</SelectItem>
+                  {(academicYearsQ.data ?? []).map((y) => (
+                    <SelectItem key={y.id} value={String(y.id)} data-testid={`assessment-year-${y.id}`}>
+                      {y.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Term (optional)</Label>
+              <Select
+                value={assessmentForm.termId}
+                onValueChange={(v) => setAssessmentForm((p) => ({ ...p, termId: v, weekId: "", lessonId: "", outcomeId: "" }))}
+                disabled={!assessmentForm.yearId}
+              >
+                <SelectTrigger className="rounded-xl" data-testid="assessment-form-term">
+                  <SelectValue placeholder={assessmentForm.yearId ? "Select term" : "Select year first"} />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  <SelectItem value="">— Select term —</SelectItem>
+                  {(termsQ.data ?? []).map((t) => (
+                    <SelectItem key={t.id} value={String(t.id)} data-testid={`assessment-term-${t.id}`}>
+                      {t.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Week (optional)</Label>
+              <Select
+                value={assessmentForm.weekId}
+                onValueChange={(v) => setAssessmentForm((p) => ({ ...p, weekId: v, lessonId: "", outcomeId: "" }))}
+                disabled={!assessmentForm.termId}
+              >
+                <SelectTrigger className="rounded-xl" data-testid="assessment-form-week">
+                  <SelectValue placeholder={assessmentForm.termId ? "Select week" : "Select term first"} />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  <SelectItem value="">— Select week —</SelectItem>
+                  {(weeksQ.data ?? []).map((w) => (
+                    <SelectItem key={w.id} value={String(w.id)} data-testid={`assessment-week-${w.id}`}>
+                      {w.weekNumber}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Lesson (optional)</Label>
+              <Select
                 value={assessmentForm.lessonId}
-                onChange={(e) => setAssessmentForm((p) => ({ ...p, lessonId: e.target.value }))}
-                placeholder="Optional"
-                className="rounded-xl"
-                data-testid="assessment-form-lessonId"
-              />
+                onValueChange={(v) => setAssessmentForm((p) => ({ ...p, lessonId: v, outcomeId: "" }))}
+                disabled={!assessmentForm.weekId}
+              >
+                <SelectTrigger className="rounded-xl" data-testid="assessment-form-lesson">
+                  <SelectValue placeholder={assessmentForm.weekId ? "Select lesson" : "Select week first"} />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  <SelectItem value="">— Select lesson —</SelectItem>
+                  {(lessonsQ.data ?? []).map((l) => (
+                    <SelectItem key={l.id} value={String(l.id)} data-testid={`assessment-lesson-${l.id}`}>
+                      {l.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="sm:col-span-2 space-y-2">
-              <Label htmlFor="assOutcomeId">Outcome ID (optional)</Label>
-              <Input
-                id="assOutcomeId"
+              <Label>Learning Outcome (optional)</Label>
+              <Select
                 value={assessmentForm.outcomeId}
-                onChange={(e) => setAssessmentForm((p) => ({ ...p, outcomeId: e.target.value }))}
-                placeholder="Optional"
-                className="rounded-xl"
-                data-testid="assessment-form-outcomeId"
-              />
-              <p className="text-xs text-muted-foreground">
-                If your backend wires lesson/outcome selection later, you can replace these ID fields with selects.
-              </p>
+                onValueChange={(v) => setAssessmentForm((p) => ({ ...p, outcomeId: v }))}
+                disabled={!assessmentForm.lessonId}
+              >
+                <SelectTrigger className="rounded-xl" data-testid="assessment-form-outcome">
+                  <SelectValue placeholder={assessmentForm.lessonId ? "Select outcome" : "Select lesson first"} />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl">
+                  <SelectItem value="">— Select outcome —</SelectItem>
+                  {(outcomesQ.data ?? []).map((o) => (
+                    <SelectItem key={o.id} value={String(o.id)} data-testid={`assessment-outcome-${o.id}`}>
+                      {o.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
