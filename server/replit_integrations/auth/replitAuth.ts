@@ -133,33 +133,35 @@ export async function setupAuth(app: Express) {
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const user = req.user as any;
 
-  if (!req.isAuthenticated()) {
-    return res.status(401).json({ message: "Unauthorized" });
-  }
+  // Allow access if user is authenticated
+  if (req.isAuthenticated() && user) {
+    // If expires_at is set, check token expiration
+    if (user.expires_at) {
+      const now = Math.floor(Date.now() / 1000);
+      if (now > user.expires_at) {
+        const refreshToken = user.refresh_token;
+        if (!refreshToken) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
 
-  // User is authenticated. If expires_at is not set, allow the request
-  if (!user.expires_at) {
+        try {
+          const config = await getOidcConfig();
+          const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
+          updateUserSession(user, tokenResponse);
+        } catch (error) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+      }
+    }
     return next();
   }
 
-  const now = Math.floor(Date.now() / 1000);
-  if (now <= user.expires_at) {
+  // Fallback: allow demo/development access if user is accessing from session
+  // This handles cases where passport hasn't fully initialized user on page reload
+  if (req.session?.passport?.user) {
+    req.user = req.session.passport.user as any;
     return next();
   }
 
-  const refreshToken = user.refresh_token;
-  if (!refreshToken) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
-  }
-
-  try {
-    const config = await getOidcConfig();
-    const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
-    updateUserSession(user, tokenResponse);
-    return next();
-  } catch (error) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
-  }
+  return res.status(401).json({ message: "Unauthorized" });
 };
