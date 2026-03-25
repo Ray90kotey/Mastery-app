@@ -10,7 +10,7 @@ Core features:
 - **Academic Structure** — academic years → terms → weeks → lessons → learning outcomes
 - **Assessments & Scoring** — create assessments (classwork, quiz, test, project) linked to lessons, enter student scores
 - **Mastery Calculation** — weighted and recency-based scoring with mastery bands and trend indicators
-- **PDF Reports** — server-side PDF generation via PDFKit for student and class reports
+- **PDF Reports** — server-side PDF generation via PDFKit for student and class reports. Restructured layout: teal/gold header with school branding, mastery band progress bar, lesson/outcome tables with color-coded scores, strengths/needs-support side-by-side panels, insights box, and signed footer.
 - **WhatsApp Sharing** — share report links with parents via `wa.me` links
 - **Settings** — school name configuration for branding on reports
 
