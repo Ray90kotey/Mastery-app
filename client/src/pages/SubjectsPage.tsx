@@ -20,7 +20,7 @@ import {
   useOutcomesByLesson,
   useCreateOutcome,
 } from "@/hooks/use-academic";
-import { BookOpen, Plus, Loader2, ChevronDown, ChevronRight } from "lucide-react";
+import { BookOpen, Plus, Loader2, ChevronDown, ChevronRight, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function SubjectsPage() {
@@ -65,6 +65,21 @@ export default function SubjectsPage() {
   const [expandedTerms, setExpandedTerms] = useState<Set<number>>(new Set());
   const [expandedWeeks, setExpandedWeeks] = useState<Set<number>>(new Set());
   const [expandedLessons, setExpandedLessons] = useState<Set<number>>(new Set());
+  const [printingYearId, setPrintingYearId] = useState<number | null>(null);
+
+  const printCurriculum = async (yearId: number) => {
+    setPrintingYearId(yearId);
+    try {
+      const res = await fetch(`/api/academic-years/${yearId}/curriculum-pdf`, { method: "POST" });
+      if (!res.ok) throw new Error("Failed to generate PDF");
+      const data = await res.json();
+      window.open(data.url, "_blank");
+    } catch (e: any) {
+      toast({ title: "Could not generate curriculum PDF", description: e?.message ?? "Try again", variant: "destructive" });
+    } finally {
+      setPrintingYearId(null);
+    }
+  };
 
   const toggleYear = (id: number) => {
     const newSet = new Set(expandedYears);
@@ -141,17 +156,36 @@ export default function SubjectsPage() {
             ) : (
               yearsQ.data?.map((year) => (
                 <div key={year.id} className="space-y-2">
-                  <button
-                    onClick={() => toggleYear(year.id)}
-                    className="w-full flex items-center gap-2 p-3 hover:bg-muted/50 rounded-xl transition-colors"
-                  >
-                    {expandedYears.has(year.id) ? (
-                      <ChevronDown className="h-4 w-4" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4" />
-                    )}
-                    <span className="font-semibold">{year.name}</span>
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => toggleYear(year.id)}
+                      className="flex-1 flex items-center gap-2 p-3 hover:bg-muted/50 rounded-xl transition-colors text-left"
+                      data-testid={`year-toggle-${year.id}`}
+                    >
+                      {expandedYears.has(year.id) ? (
+                        <ChevronDown className="h-4 w-4 shrink-0" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 shrink-0" />
+                      )}
+                      <span className="font-semibold">{year.name}</span>
+                    </button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="rounded-xl h-8 px-2 text-xs gap-1.5 shrink-0"
+                      onClick={() => printCurriculum(year.id)}
+                      disabled={printingYearId === year.id}
+                      data-testid={`year-print-${year.id}`}
+                      title="Print curriculum for this year"
+                    >
+                      {printingYearId === year.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Printer className="h-3.5 w-3.5" />
+                      )}
+                      <span className="hidden sm:inline">Print</span>
+                    </Button>
+                  </div>
 
                   {expandedYears.has(year.id) && (
                     <div className="pl-6 space-y-2">

@@ -41,7 +41,7 @@ import {
   type AssessmentType,
   type TrendIndicator,
 } from "@shared/schema";
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 
 export interface IStorage {
   // Settings
@@ -170,6 +170,12 @@ export interface IStorage {
   getClassMastery(
     teacherId: string,
     classId: number,
+  ): Promise<any | undefined>;
+
+  // Curriculum
+  getAcademicYearCurriculum(
+    teacherId: string,
+    yearId: number,
   ): Promise<any | undefined>;
 }
 
@@ -871,6 +877,52 @@ export class DatabaseStorage implements IStorage {
         level: m.masteryLevel,
       })),
     };
+  }
+
+  async getAcademicYearCurriculum(teacherId: string, yearId: number): Promise<any | undefined> {
+    const [year] = await db
+      .select()
+      .from(academicYears)
+      .where(and(eq(academicYears.id, yearId), eq(academicYears.teacherId, teacherId)));
+    if (!year) return undefined;
+
+    const termsList = await db
+      .select()
+      .from(terms)
+      .where(eq(terms.academicYearId, yearId))
+      .orderBy(asc(terms.createdAt));
+
+    const result: any[] = [];
+    for (const term of termsList) {
+      const weeksList = await db
+        .select()
+        .from(weeks)
+        .where(eq(weeks.termId, term.id))
+        .orderBy(asc(weeks.weekNumber));
+
+      const termObj: any = { ...term, weeks: [] };
+      for (const week of weeksList) {
+        const lessonsList = await db
+          .select()
+          .from(lessons)
+          .where(eq(lessons.weekId, week.id))
+          .orderBy(asc(lessons.title));
+
+        const weekObj: any = { ...week, lessons: [] };
+        for (const lesson of lessonsList) {
+          const outcomesList = await db
+            .select()
+            .from(outcomes)
+            .where(eq(outcomes.lessonId, lesson.id))
+            .orderBy(asc(outcomes.description));
+          weekObj.lessons.push({ ...lesson, outcomes: outcomesList });
+        }
+        termObj.weeks.push(weekObj);
+      }
+      result.push(termObj);
+    }
+
+    return { year, terms: result };
   }
 }
 

@@ -761,6 +761,146 @@ export async function registerRoutes(_server: Server, app: Express) {
     res.status(201).json({ classId: id, fileName, url: `/api/reports/${fileName}` });
   });
 
+  // Curriculum PDF: all lessons & outcomes for an academic year
+  app.post("/api/academic-years/:id/curriculum-pdf", isAuthenticated, async (req: any, res) => {
+    const teacherId = getTeacherId(req);
+    const yearId = Number(req.params.id);
+
+    const curriculum = await storage.getAcademicYearCurriculum(teacherId, yearId);
+    if (!curriculum) return res.status(404).json({ message: "Academic year not found" });
+
+    const teacherSettings = await storage.getSettings(teacherId);
+    const schoolName = teacherSettings?.schoolName || "Academic Institution";
+
+    const reportsDir = ensureReportsDir();
+    const fileName = `curriculum_year_${yearId}_${Date.now()}.pdf`;
+    const filePath = path.join(reportsDir, fileName);
+
+    await new Promise<void>((resolve, reject) => {
+      const doc = new PDFDocument({ size: "A4", margin: MARGIN, autoFirstPage: true });
+      const stream = fs.createWriteStream(filePath);
+      doc.pipe(stream);
+
+      let logoBuffer: Buffer | null = null;
+      if (teacherSettings?.schoolLogo) {
+        try { logoBuffer = Buffer.from(teacherSettings.schoolLogo.split(",")[1], "base64"); } catch {}
+      }
+
+      drawPageHeader(doc, schoolName, logoBuffer, `CURRICULUM OVERVIEW — ${curriculum.year.name}`);
+
+      let y = 106;
+
+      if (curriculum.terms.length === 0) {
+        doc.fillColor("#64748B").fontSize(11).font("Helvetica").text("No terms, lessons or outcomes have been added yet.", MARGIN, y + 20);
+        doc.end();
+        stream.on("finish", () => resolve());
+        stream.on("error", (e) => reject(e));
+        return;
+      }
+
+      const TERM_COLORS = ["#0F4C5C", "#1E6A7A", "#2A8BA0", "#F4A300"];
+
+      curriculum.terms.forEach((term: any, termIdx: number) => {
+        // Page break check for term header
+        if (y > PAGE_H - 120) { doc.addPage(); drawPageHeader(doc, schoolName, logoBuffer, `CURRICULUM OVERVIEW — ${curriculum.year.name}`); y = 106; }
+
+        // Term header bar
+        const termColor = TERM_COLORS[termIdx % TERM_COLORS.length];
+        doc.rect(MARGIN, y, CONTENT_W, 28).fill(termColor);
+        doc.fillColor("#FFFFFF").fontSize(11).font("Helvetica-Bold").text(term.name.toUpperCase(), MARGIN + 12, y + 8);
+        y += 28 + 8;
+
+        if (term.weeks.length === 0) {
+          doc.fillColor("#94A3B8").fontSize(9).font("Helvetica").text("No weeks added.", MARGIN + 12, y);
+          y += 20;
+          return;
+        }
+
+        term.weeks.forEach((week: any) => {
+          if (y > PAGE_H - 100) { doc.addPage(); drawPageHeader(doc, schoolName, logoBuffer, `CURRICULUM OVERVIEW — ${curriculum.year.name}`); y = 106; }
+
+          // Week header
+          doc.rect(MARGIN, y, CONTENT_W, 20).fill("#F1F5F9");
+          doc.fillColor("#334155").fontSize(9).font("Helvetica-Bold").text(`WEEK ${week.weekNumber}`, MARGIN + 10, y + 6);
+          doc.fillColor("#94A3B8").fontSize(8).font("Helvetica").text(`${week.lessons.length} lesson${week.lessons.length !== 1 ? "s" : ""}`, MARGIN + CONTENT_W - 70, y + 6);
+          y += 20 + 4;
+
+          if (week.lessons.length === 0) {
+            doc.fillColor("#94A3B8").fontSize(8).font("Helvetica").text("No lessons added.", MARGIN + 20, y);
+            y += 16;
+            return;
+          }
+
+          week.lessons.forEach((lesson: any, lessonIdx: number) => {
+            if (y > PAGE_H - 80) { doc.addPage(); drawPageHeader(doc, schoolName, logoBuffer, `CURRICULUM OVERVIEW — ${curriculum.year.name}`); y = 106; }
+
+            // Lesson row
+            const lessonBg = lessonIdx % 2 === 0 ? "#FFFFFF" : "#FAFAFA";
+            const outcomesHeight = Math.max(22, 22 + lesson.outcomes.length * 15);
+            doc.rect(MARGIN + 10, y, CONTENT_W - 10, outcomesHeight).fill(lessonBg);
+
+            // Bullet dot
+            doc.circle(MARGIN + 22, y + 11, 3).fill(termColor);
+
+            // Lesson title
+            doc.fillColor("#0F172A").fontSize(9.5).font("Helvetica-Bold").text(lesson.title, MARGIN + 30, y + 4, { width: CONTENT_W - 50 });
+            y += 18;
+
+            // Outcomes
+            lesson.outcomes.forEach((outcome: any) => {
+              if (y > PAGE_H - 60) { doc.addPage(); drawPageHeader(doc, schoolName, logoBuffer, `CURRICULUM OVERVIEW — ${curriculum.year.name}`); y = 106; }
+              doc.fillColor("#94A3B8").fontSize(8).font("Helvetica").text("›", MARGIN + 34, y);
+              doc.fillColor("#475569").fontSize(8).font("Helvetica").text(outcome.description, MARGIN + 44, y, { width: CONTENT_W - 60 });
+              y += 14;
+            });
+
+            if (lesson.outcomes.length === 0) {
+              doc.fillColor("#CBD5E1").fontSize(7.5).font("Helvetica").text("No outcomes added", MARGIN + 44, y);
+              y += 13;
+            }
+
+            y += 4;
+            doc.moveTo(MARGIN + 10, y).lineTo(MARGIN + CONTENT_W, y).lineWidth(0.2).stroke("#E2E8F0");
+          });
+
+          y += 12;
+        });
+
+        y += 10;
+      });
+
+      // Summary footer line
+      if (y < PAGE_H - 80) {
+        const totalLessons = curriculum.terms.reduce((s: number, t: any) => s + t.weeks.reduce((ws: number, w: any) => ws + w.lessons.length, 0), 0);
+        const totalOutcomes = curriculum.terms.reduce((s: number, t: any) => s + t.weeks.reduce((ws: number, w: any) => ws + w.lessons.reduce((ls: number, l: any) => ls + l.outcomes.length, 0), 0), 0);
+        y += 6;
+        doc.rect(MARGIN, y, CONTENT_W, 24).fill("#F8FAFC").stroke("#E2E8F0");
+        doc.fillColor("#475569").fontSize(8).font("Helvetica").text(
+          `Total: ${curriculum.terms.length} term${curriculum.terms.length !== 1 ? "s" : ""} • ${totalLessons} lessons • ${totalOutcomes} outcomes`,
+          MARGIN + 12, y + 8
+        );
+        doc.fillColor("#94A3B8").fontSize(8).font("Helvetica").text(
+          new Date().toLocaleDateString("en-GH", { year: "numeric", month: "long", day: "numeric" }),
+          MARGIN + CONTENT_W - 130, y + 8
+        );
+      }
+
+      // Footer line
+      const footerY = PAGE_H - 45;
+      doc.moveTo(MARGIN, footerY).lineTo(PAGE_W - MARGIN, footerY).lineWidth(0.5).stroke("#E2E8F0");
+      doc.fillColor("#94A3B8").fontSize(7).font("Helvetica").text(
+        "This curriculum overview was generated by Mastery.",
+        MARGIN, footerY + 10, { align: "center", width: CONTENT_W }
+      );
+
+      doc.end();
+      stream.on("finish", () => resolve());
+      stream.on("error", (e) => reject(e));
+    });
+
+    res.status(201).json({ yearId, fileName, url: `/api/reports/${fileName}` });
+  });
+
   app.get("/api/reports/:fileName", isAuthenticated, async (req: any, res) => {
     const fileName = String(req.params.fileName || "");
     const reportsDir = ensureReportsDir();
