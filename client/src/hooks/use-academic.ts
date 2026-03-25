@@ -273,6 +273,40 @@ export function useCreateLesson() {
   });
 }
 
+export function useLessonsBySubject(subjectId: number | null) {
+  return useQuery({
+    enabled: typeof subjectId === "number",
+    queryKey: ["/api/subjects", subjectId, "lessons"],
+    queryFn: async () => {
+      const res = await fetch(`/api/subjects/${subjectId}/lessons`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch subject lessons");
+      return res.json() as Promise<{ id: number; subjectId: number | null; weekId: number | null; title: string; createdAt: string }[]>;
+    },
+  });
+}
+
+export function useCreateSubjectLesson() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ subjectId, title }: { subjectId: number; title: string }) => {
+      const res = await fetch(`/api/subjects/${subjectId}/lessons`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ title }),
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.message ?? "Failed to create lesson");
+      }
+      return res.json();
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["/api/subjects", vars.subjectId, "lessons"] });
+    },
+  });
+}
+
 export function useOutcomesByLesson(lessonId: number | null) {
   return useQuery({
     enabled: typeof lessonId === "number",

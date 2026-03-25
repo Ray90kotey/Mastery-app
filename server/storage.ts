@@ -126,6 +126,8 @@ export interface IStorage {
     weekId: number,
     input: Omit<CreateLessonRequest, "weekId">,
   ): Promise<LessonResponse | undefined>;
+  listLessonsBySubject(teacherId: string, subjectId: number): Promise<LessonResponse[] | undefined>;
+  createSubjectLesson(teacherId: string, subjectId: number, title: string): Promise<LessonResponse | undefined>;
 
   // Outcomes
   listOutcomesByLesson(
@@ -545,18 +547,40 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
+  async listLessonsBySubject(teacherId: string, subjectId: number): Promise<LessonResponse[] | undefined> {
+    const [sub] = await db.select({ id: subjects.id }).from(subjects).where(and(eq(subjects.id, subjectId), eq(subjects.teacherId, teacherId)));
+    if (!sub) return undefined;
+    return await db.select().from(lessons).where(eq(lessons.subjectId, subjectId)).orderBy(asc(lessons.createdAt));
+  }
+
+  async createSubjectLesson(teacherId: string, subjectId: number, title: string): Promise<LessonResponse | undefined> {
+    const existing = await this.listLessonsBySubject(teacherId, subjectId);
+    if (!existing) return undefined;
+    const dup = existing.find((l) => l.title.toLowerCase() === title.toLowerCase());
+    if (dup) return dup;
+    const [created] = await db.insert(lessons).values({ subjectId, title }).returning();
+    return created;
+  }
+
   async listOutcomesByLesson(
     teacherId: string,
     lessonId: number,
   ): Promise<OutcomeResponse[] | undefined> {
     const [lsn] = await db
-      .select({ id: lessons.id, weekId: lessons.weekId })
+      .select({ id: lessons.id, weekId: lessons.weekId, subjectId: lessons.subjectId })
       .from(lessons)
       .where(eq(lessons.id, lessonId));
     if (!lsn) return undefined;
 
-    const listLessons = await this.listLessonsByWeek(teacherId, lsn.weekId);
-    if (!listLessons) return undefined;
+    if (lsn.weekId != null) {
+      const listLessons = await this.listLessonsByWeek(teacherId, lsn.weekId);
+      if (!listLessons) return undefined;
+    } else if (lsn.subjectId != null) {
+      const subjectLessons = await this.listLessonsBySubject(teacherId, lsn.subjectId);
+      if (!subjectLessons) return undefined;
+    } else {
+      return undefined;
+    }
 
     return await db
       .select()
