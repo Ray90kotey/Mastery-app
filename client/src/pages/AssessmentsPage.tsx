@@ -559,7 +559,6 @@ export default function AssessmentsPage() {
                   <SelectValue placeholder="Select year" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl">
-                  <SelectItem value="">— Select year —</SelectItem>
                   {(academicYearsQ.data ?? []).map((y) => (
                     <SelectItem key={y.id} value={String(y.id)} data-testid={`assessment-year-${y.id}`}>
                       {y.name}
@@ -580,7 +579,6 @@ export default function AssessmentsPage() {
                   <SelectValue placeholder={assessmentForm.yearId ? "Select term" : "Select year first"} />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl">
-                  <SelectItem value="">— Select term —</SelectItem>
                   {(termsQ.data ?? []).map((t) => (
                     <SelectItem key={t.id} value={String(t.id)} data-testid={`assessment-term-${t.id}`}>
                       {t.name}
@@ -601,7 +599,6 @@ export default function AssessmentsPage() {
                   <SelectValue placeholder={assessmentForm.termId ? "Select week" : "Select term first"} />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl">
-                  <SelectItem value="">— Select week —</SelectItem>
                   {(weeksQ.data ?? []).map((w) => (
                     <SelectItem key={w.id} value={String(w.id)} data-testid={`assessment-week-${w.id}`}>
                       {w.weekNumber}
@@ -622,7 +619,6 @@ export default function AssessmentsPage() {
                   <SelectValue placeholder={assessmentForm.weekId ? "Select lesson" : "Select week first"} />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl">
-                  <SelectItem value="">— Select lesson —</SelectItem>
                   {(lessonsQ.data ?? []).map((l) => (
                     <SelectItem key={l.id} value={String(l.id)} data-testid={`assessment-lesson-${l.id}`}>
                       {l.title}
@@ -643,7 +639,6 @@ export default function AssessmentsPage() {
                   <SelectValue placeholder={assessmentForm.lessonId ? "Select outcome" : "Select lesson first"} />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl">
-                  <SelectItem value="">— Select outcome —</SelectItem>
                   {(outcomesQ.data ?? []).map((o) => (
                     <SelectItem key={o.id} value={String(o.id)} data-testid={`assessment-outcome-${o.id}`}>
                       {o.title}
