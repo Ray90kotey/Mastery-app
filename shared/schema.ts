@@ -101,12 +101,13 @@ export const lessons = pgTable(
     id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
     weekId: integer("week_id"),
     subjectId: integer("subject_id"),
+    classId: integer("class_id"),
     title: text("title").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => [
     uniqueIndex("lessons_week_title_uq").on(t.weekId, t.title),
-    uniqueIndex("lessons_subject_title_uq").on(t.subjectId, t.title),
+    uniqueIndex("lessons_class_subject_title_uq").on(t.classId, t.subjectId, t.title),
   ],
 );
 

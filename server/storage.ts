@@ -126,8 +126,8 @@ export interface IStorage {
     weekId: number,
     input: Omit<CreateLessonRequest, "weekId">,
   ): Promise<LessonResponse | undefined>;
-  listLessonsBySubject(teacherId: string, subjectId: number): Promise<LessonResponse[] | undefined>;
-  createSubjectLesson(teacherId: string, subjectId: number, title: string): Promise<LessonResponse | undefined>;
+  listLessonsBySubject(teacherId: string, subjectId: number, classId: number): Promise<LessonResponse[] | undefined>;
+  createSubjectLesson(teacherId: string, subjectId: number, classId: number, title: string): Promise<LessonResponse | undefined>;
 
   // Outcomes
   listOutcomesByLesson(
@@ -547,18 +547,22 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async listLessonsBySubject(teacherId: string, subjectId: number): Promise<LessonResponse[] | undefined> {
+  async listLessonsBySubject(teacherId: string, subjectId: number, classId: number): Promise<LessonResponse[] | undefined> {
     const [sub] = await db.select({ id: subjects.id }).from(subjects).where(and(eq(subjects.id, subjectId), eq(subjects.teacherId, teacherId)));
     if (!sub) return undefined;
-    return await db.select().from(lessons).where(eq(lessons.subjectId, subjectId)).orderBy(asc(lessons.createdAt));
+    const [cls] = await db.select({ id: classes.id }).from(classes).where(and(eq(classes.id, classId), eq(classes.teacherId, teacherId)));
+    if (!cls) return undefined;
+    return await db.select().from(lessons)
+      .where(and(eq(lessons.subjectId, subjectId), eq(lessons.classId, classId)))
+      .orderBy(asc(lessons.createdAt));
   }
 
-  async createSubjectLesson(teacherId: string, subjectId: number, title: string): Promise<LessonResponse | undefined> {
-    const existing = await this.listLessonsBySubject(teacherId, subjectId);
+  async createSubjectLesson(teacherId: string, subjectId: number, classId: number, title: string): Promise<LessonResponse | undefined> {
+    const existing = await this.listLessonsBySubject(teacherId, subjectId, classId);
     if (!existing) return undefined;
     const dup = existing.find((l) => l.title.toLowerCase() === title.toLowerCase());
     if (dup) return dup;
-    const [created] = await db.insert(lessons).values({ subjectId, title }).returning();
+    const [created] = await db.insert(lessons).values({ subjectId, classId, title }).returning();
     return created;
   }
 

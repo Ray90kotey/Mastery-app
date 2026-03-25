@@ -273,14 +273,16 @@ export function useCreateLesson() {
   });
 }
 
-export function useLessonsBySubject(subjectId: number | null) {
+export type SubjectLesson = { id: number; subjectId: number | null; classId: number | null; weekId: number | null; title: string; createdAt: string };
+
+export function useLessonsBySubject(classId: number | null, subjectId: number | null) {
   return useQuery({
-    enabled: typeof subjectId === "number",
-    queryKey: ["/api/subjects", subjectId, "lessons"],
+    enabled: typeof classId === "number" && typeof subjectId === "number",
+    queryKey: ["/api/classes", classId, "subjects", subjectId, "lessons"],
     queryFn: async () => {
-      const res = await fetch(`/api/subjects/${subjectId}/lessons`, { credentials: "include" });
+      const res = await fetch(`/api/classes/${classId}/subjects/${subjectId}/lessons`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch subject lessons");
-      return res.json() as Promise<{ id: number; subjectId: number | null; weekId: number | null; title: string; createdAt: string }[]>;
+      return res.json() as Promise<SubjectLesson[]>;
     },
   });
 }
@@ -288,8 +290,8 @@ export function useLessonsBySubject(subjectId: number | null) {
 export function useCreateSubjectLesson() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ subjectId, title }: { subjectId: number; title: string }) => {
-      const res = await fetch(`/api/subjects/${subjectId}/lessons`, {
+    mutationFn: async ({ classId, subjectId, title }: { classId: number; subjectId: number; title: string }) => {
+      const res = await fetch(`/api/classes/${classId}/subjects/${subjectId}/lessons`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -299,10 +301,10 @@ export function useCreateSubjectLesson() {
         const json = await res.json().catch(() => ({}));
         throw new Error(json.message ?? "Failed to create lesson");
       }
-      return res.json();
+      return res.json() as Promise<SubjectLesson>;
     },
     onSuccess: (_data, vars) => {
-      qc.invalidateQueries({ queryKey: ["/api/subjects", vars.subjectId, "lessons"] });
+      qc.invalidateQueries({ queryKey: ["/api/classes", vars.classId, "subjects", vars.subjectId, "lessons"] });
     },
   });
 }

@@ -308,22 +308,24 @@ export async function registerRoutes(_server: Server, app: Express) {
     }
   });
 
-  // Subject Lessons (subject-centric, no week required)
-  app.get("/api/subjects/:subjectId/lessons", isAuthenticated, async (req: any, res) => {
+  // Subject Lessons scoped to a class
+  app.get("/api/classes/:classId/subjects/:subjectId/lessons", isAuthenticated, async (req: any, res) => {
     const teacherId = getTeacherId(req);
     const subjectId = Number(req.params.subjectId);
-    const result = await storage.listLessonsBySubject(teacherId, subjectId);
-    if (!result) return res.status(404).json({ message: "Subject not found" });
+    const classId = Number(req.params.classId);
+    const result = await storage.listLessonsBySubject(teacherId, subjectId, classId);
+    if (!result) return res.status(404).json({ message: "Not found" });
     res.json(result);
   });
 
-  app.post("/api/subjects/:subjectId/lessons", isAuthenticated, async (req: any, res) => {
+  app.post("/api/classes/:classId/subjects/:subjectId/lessons", isAuthenticated, async (req: any, res) => {
     const teacherId = getTeacherId(req);
     const subjectId = Number(req.params.subjectId);
+    const classId = Number(req.params.classId);
     const title = String(req.body?.title || "").trim();
     if (!title) return res.status(400).json({ message: "Lesson title is required" });
-    const created = await storage.createSubjectLesson(teacherId, subjectId, title);
-    if (!created) return res.status(404).json({ message: "Subject not found" });
+    const created = await storage.createSubjectLesson(teacherId, subjectId, classId, title);
+    if (!created) return res.status(404).json({ message: "Not found" });
     res.status(201).json(created);
   });
 
