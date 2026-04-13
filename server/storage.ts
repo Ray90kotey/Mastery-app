@@ -127,7 +127,7 @@ export interface IStorage {
     input: Omit<CreateLessonRequest, "weekId">,
   ): Promise<LessonResponse | undefined>;
   listLessonsBySubject(teacherId: string, subjectId: number, classId: number): Promise<LessonResponse[] | undefined>;
-  createSubjectLesson(teacherId: string, subjectId: number, classId: number, title: string): Promise<LessonResponse | undefined>;
+  createSubjectLesson(teacherId: string, subjectId: number, classId: number, title: string, weekId?: number): Promise<LessonResponse | undefined>;
 
   // Outcomes
   listOutcomesByLesson(
@@ -557,12 +557,12 @@ export class DatabaseStorage implements IStorage {
       .orderBy(asc(lessons.createdAt));
   }
 
-  async createSubjectLesson(teacherId: string, subjectId: number, classId: number, title: string): Promise<LessonResponse | undefined> {
+  async createSubjectLesson(teacherId: string, subjectId: number, classId: number, title: string, weekId?: number): Promise<LessonResponse | undefined> {
     const existing = await this.listLessonsBySubject(teacherId, subjectId, classId);
     if (!existing) return undefined;
     const dup = existing.find((l) => l.title.toLowerCase() === title.toLowerCase());
     if (dup) return dup;
-    const [created] = await db.insert(lessons).values({ subjectId, classId, title }).returning();
+    const [created] = await db.insert(lessons).values({ subjectId, classId, title, weekId: weekId ?? null }).returning();
     return created;
   }
 
@@ -571,7 +571,7 @@ export class DatabaseStorage implements IStorage {
     lessonId: number,
   ): Promise<OutcomeResponse[] | undefined> {
     const [lsn] = await db
-      .select({ id: lessons.id, weekId: lessons.weekId, subjectId: lessons.subjectId })
+      .select({ id: lessons.id, weekId: lessons.weekId, subjectId: lessons.subjectId, classId: lessons.classId })
       .from(lessons)
       .where(eq(lessons.id, lessonId));
     if (!lsn) return undefined;
@@ -579,8 +579,8 @@ export class DatabaseStorage implements IStorage {
     if (lsn.weekId != null) {
       const listLessons = await this.listLessonsByWeek(teacherId, lsn.weekId);
       if (!listLessons) return undefined;
-    } else if (lsn.subjectId != null) {
-      const subjectLessons = await this.listLessonsBySubject(teacherId, lsn.subjectId);
+    } else if (lsn.subjectId != null && lsn.classId != null) {
+      const subjectLessons = await this.listLessonsBySubject(teacherId, lsn.subjectId, lsn.classId);
       if (!subjectLessons) return undefined;
     } else {
       return undefined;

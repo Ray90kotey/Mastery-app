@@ -290,12 +290,12 @@ export function useLessonsBySubject(classId: number | null, subjectId: number | 
 export function useCreateSubjectLesson() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ classId, subjectId, title }: { classId: number; subjectId: number; title: string }) => {
+    mutationFn: async ({ classId, subjectId, title, weekId }: { classId: number; subjectId: number; title: string; weekId?: number }) => {
       const res = await fetch(`/api/classes/${classId}/subjects/${subjectId}/lessons`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ title }),
+        body: JSON.stringify({ title, weekId: weekId ?? null }),
       });
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));

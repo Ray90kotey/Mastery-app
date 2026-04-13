@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   useAcademicYears,
   useCreateAcademicYear,
@@ -20,6 +21,7 @@ import {
   useCreateSubjectLesson,
   useOutcomesByLesson,
   useCreateOutcome,
+  type SubjectLesson,
 } from "@/hooks/use-academic";
 import { useClasses } from "@/hooks/use-classes";
 import { useQuery } from "@tanstack/react-query";
@@ -35,15 +37,16 @@ import {
   BookText,
   Calendar,
   CheckCircle2,
-  ArrowLeft,
   Users,
   ChevronLeft,
+  Link2,
+  CalendarDays,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 // ─── Lesson card with inline outcome management ───────────────────────────────
 
-function LessonCard({ lesson }: { lesson: { id: number; title: string } }) {
+function LessonCard({ lesson }: { lesson: SubjectLesson }) {
   const { toast } = useToast();
   const outcomesQ = useOutcomesByLesson(lesson.id);
   const createOutcome = useCreateOutcome();
@@ -75,6 +78,11 @@ function LessonCard({ lesson }: { lesson: { id: number; title: string } }) {
         </div>
         <span className="flex-1 font-medium text-sm">{lesson.title}</span>
         <div className="flex items-center gap-2">
+          {lesson.weekId && (
+            <Badge className="text-xs rounded-full px-2 py-0 bg-accent/20 text-accent-foreground border border-accent/30 gap-1 hidden sm:flex">
+              <Link2 className="h-3 w-3" /> Scheduled
+            </Badge>
+          )}
           {outcomesQ.data && outcomesQ.data.length > 0 && (
             <Badge variant="secondary" className="text-xs rounded-full px-2 py-0">
               {outcomesQ.data.length} outcome{outcomesQ.data.length !== 1 ? "s" : ""}
@@ -148,11 +156,31 @@ function SubjectLessonsPanel({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [lessonTitle, setLessonTitle] = useState("");
 
+  // Week scheduling state
+  const [pickYearId, setPickYearId] = useState<string>("");
+  const [pickTermId, setPickTermId] = useState<string>("");
+  const [pickWeekId, setPickWeekId] = useState<string>("");
+  const yearsQ = useAcademicYears();
+  const termsQ = useTermsByYear(pickYearId ? Number(pickYearId) : null);
+  const weeksQ = useWeeksByTerm(pickTermId ? Number(pickTermId) : null);
+
+  const resetDialog = () => {
+    setLessonTitle("");
+    setPickYearId("");
+    setPickTermId("");
+    setPickWeekId("");
+  };
+
   const handleCreate = async () => {
     if (!lessonTitle.trim()) return;
     try {
-      await createLesson.mutateAsync({ classId: selectedClass.id, subjectId: subject.id, title: lessonTitle.trim() });
-      setLessonTitle("");
+      await createLesson.mutateAsync({
+        classId: selectedClass.id,
+        subjectId: subject.id,
+        title: lessonTitle.trim(),
+        weekId: pickWeekId ? Number(pickWeekId) : undefined,
+      });
+      resetDialog();
       setDialogOpen(false);
       toast({ title: "Lesson added" });
     } catch (e: any) {
@@ -225,29 +253,117 @@ function SubjectLessonsPanel({
       </div>
 
       {/* Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="rounded-2xl">
+      <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) resetDialog(); setDialogOpen(open); }}>
+        <DialogContent className="rounded-2xl max-w-md">
           <DialogHeader>
             <DialogTitle>Add Lesson — {subject.name}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-2 py-1">
-            <Label htmlFor="lesson-title">Lesson title</Label>
-            <Input
-              id="lesson-title"
-              value={lessonTitle}
-              onChange={(e) => setLessonTitle(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-              placeholder="e.g. Introduction to Fractions"
-              className="rounded-xl"
-              data-testid="lesson-title-input"
-              autoFocus
-            />
-            <p className="text-xs text-muted-foreground">
-              For class: <strong>{selectedClass.name}</strong>
-            </p>
+          <div className="space-y-4 py-1">
+            {/* Lesson title */}
+            <div className="space-y-1.5">
+              <Label htmlFor="lesson-title">Lesson title</Label>
+              <Input
+                id="lesson-title"
+                value={lessonTitle}
+                onChange={(e) => setLessonTitle(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+                placeholder="e.g. Introduction to Fractions"
+                className="rounded-xl"
+                data-testid="lesson-title-input"
+                autoFocus
+              />
+              <p className="text-xs text-muted-foreground">For class: <strong>{selectedClass.name}</strong></p>
+            </div>
+
+            {/* Week scheduling */}
+            <div className="rounded-2xl border border-border/60 p-3 space-y-3 bg-muted/20">
+              <div className="flex items-center gap-2">
+                <CalendarDays className="h-4 w-4 text-primary" />
+                <p className="text-sm font-medium">Link to Academic Schedule</p>
+                <Badge variant="outline" className="text-xs rounded-full ml-auto">Optional</Badge>
+              </div>
+              <p className="text-xs text-muted-foreground -mt-1">
+                Choose a week so this lesson appears in your curriculum printout.
+              </p>
+
+              {/* Year */}
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Academic Year</Label>
+                <Select
+                  value={pickYearId}
+                  onValueChange={(v) => { setPickYearId(v); setPickTermId(""); setPickWeekId(""); }}
+                >
+                  <SelectTrigger className="rounded-xl h-9 text-sm" data-testid="pick-year-select">
+                    <SelectValue placeholder="Select year…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {yearsQ.data?.map((y) => (
+                      <SelectItem key={y.id} value={String(y.id)}>{y.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Term */}
+              {pickYearId && (
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Term</Label>
+                  <Select
+                    value={pickTermId}
+                    onValueChange={(v) => { setPickTermId(v); setPickWeekId(""); }}
+                  >
+                    <SelectTrigger className="rounded-xl h-9 text-sm" data-testid="pick-term-select">
+                      <SelectValue placeholder="Select term…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {termsQ.isLoading ? (
+                        <SelectItem value="loading" disabled>Loading…</SelectItem>
+                      ) : termsQ.data?.length === 0 ? (
+                        <SelectItem value="none" disabled>No terms found</SelectItem>
+                      ) : (
+                        termsQ.data?.map((t) => (
+                          <SelectItem key={t.id} value={String(t.id)}>{t.name}</SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Week */}
+              {pickTermId && (
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Week</Label>
+                  <Select value={pickWeekId} onValueChange={setPickWeekId}>
+                    <SelectTrigger className="rounded-xl h-9 text-sm" data-testid="pick-week-select">
+                      <SelectValue placeholder="Select week…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {weeksQ.isLoading ? (
+                        <SelectItem value="loading" disabled>Loading…</SelectItem>
+                      ) : weeksQ.data?.length === 0 ? (
+                        <SelectItem value="none" disabled>No weeks found</SelectItem>
+                      ) : (
+                        weeksQ.data?.map((w) => (
+                          <SelectItem key={w.id} value={String(w.id)}>Week {w.weekNumber}</SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {pickWeekId && (
+                <div className="flex items-center gap-2 text-xs text-primary font-medium">
+                  <Link2 className="h-3.5 w-3.5" />
+                  This lesson will appear in the curriculum printout for the selected week.
+                </div>
+              )}
+            </div>
           </div>
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setDialogOpen(false); setLessonTitle(""); }} className="rounded-xl">
+            <Button variant="outline" onClick={() => { resetDialog(); setDialogOpen(false); }} className="rounded-xl">
               Cancel
             </Button>
             <Button

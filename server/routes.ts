@@ -324,7 +324,8 @@ export async function registerRoutes(_server: Server, app: Express) {
     const classId = Number(req.params.classId);
     const title = String(req.body?.title || "").trim();
     if (!title) return res.status(400).json({ message: "Lesson title is required" });
-    const created = await storage.createSubjectLesson(teacherId, subjectId, classId, title);
+    const weekId = req.body?.weekId != null ? Number(req.body.weekId) : undefined;
+    const created = await storage.createSubjectLesson(teacherId, subjectId, classId, title, weekId);
     if (!created) return res.status(404).json({ message: "Not found" });
     res.status(201).json(created);
   });
