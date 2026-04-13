@@ -1,8 +1,10 @@
-import { PropsWithChildren, useMemo } from "react";
+import { PropsWithChildren, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import { useMySchool } from "@/hooks/use-school";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -15,13 +17,44 @@ import {
   Settings,
   Sparkles,
   Users,
+  ShieldCheck,
+  School,
+  UserCircle,
 } from "lucide-react";
+import type { SchoolRole } from "@shared/schema";
 
 type NavItem = {
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   testId: string;
+  roles?: SchoolRole[];
+};
+
+const ALL_NAV: NavItem[] = [
+  { href: "/app", label: "Dashboard", icon: BarChart3, testId: "nav-dashboard", roles: ["admin", "teacher", "school_head"] },
+  { href: "/app/portal", label: "My Progress", icon: UserCircle, testId: "nav-portal", roles: ["student"] },
+  { href: "/app/classes", label: "Classes", icon: Users, testId: "nav-classes", roles: ["admin", "teacher"] },
+  { href: "/app/subjects", label: "Subjects", icon: BookOpen, testId: "nav-subjects", roles: ["admin", "teacher"] },
+  { href: "/app/academic", label: "Academic Setup", icon: BookOpen, testId: "nav-academic", roles: ["admin", "teacher"] },
+  { href: "/app/assessments", label: "Assessments", icon: ClipboardList, testId: "nav-assessments", roles: ["admin", "teacher"] },
+  { href: "/app/reports", label: "Reports", icon: FileText, testId: "nav-reports", roles: ["admin", "teacher"] },
+  { href: "/app/admin", label: "School Admin", icon: School, testId: "nav-admin", roles: ["admin", "school_head"] },
+  { href: "/app/settings", label: "Settings", icon: Settings, testId: "nav-settings", roles: ["admin", "teacher"] },
+];
+
+const ROLE_LABELS: Record<SchoolRole, string> = {
+  admin: "Admin",
+  school_head: "School Head",
+  teacher: "Teacher",
+  student: "Student",
+};
+
+const ROLE_COLORS: Record<SchoolRole, string> = {
+  admin: "bg-primary/10 text-primary border-primary/20",
+  school_head: "bg-accent/10 text-amber-700 border-accent/20",
+  teacher: "bg-blue-50 text-blue-700 border-blue-200",
+  student: "bg-green-50 text-green-700 border-green-200",
 };
 
 function initials(first?: string | null, last?: string | null, email?: string | null) {
@@ -36,25 +69,22 @@ function initials(first?: string | null, last?: string | null, email?: string | 
 
 export default function AppShell({ children }: PropsWithChildren) {
   const { user, logout, isLoggingOut } = useAuth();
+  const { data: mySchool } = useMySchool();
   const [loc] = useLocation();
 
-  const nav = useMemo<NavItem[]>(
-    () => [
-      { href: "/app", label: "Dashboard", icon: BarChart3, testId: "nav-dashboard" },
-      { href: "/app/classes", label: "Classes", icon: Users, testId: "nav-classes" },
-      { href: "/app/subjects", label: "Subjects", icon: BookOpen, testId: "nav-subjects" },
-      { href: "/app/academic", label: "Academic Setup", icon: BookOpen, testId: "nav-academic" },
-      { href: "/app/assessments", label: "Assessments", icon: ClipboardList, testId: "nav-assessments" },
-      { href: "/app/reports", label: "Reports", icon: FileText, testId: "nav-reports" },
-      { href: "/app/settings", label: "Settings", icon: Settings, testId: "nav-settings" },
-    ],
-    [],
-  );
+  const role = mySchool?.role ?? null;
+
+  const nav = useMemo<NavItem[]>(() => {
+    if (!role) return ALL_NAV.filter((item) => !item.roles);
+    return ALL_NAV.filter((item) => !item.roles || item.roles.includes(role));
+  }, [role]);
 
   const name =
     [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim() ||
     user?.email ||
     "Teacher";
+
+  const isReadOnly = role === "school_head";
 
   return (
     <div className="min-h-screen app-surface">
@@ -77,9 +107,14 @@ export default function AppShell({ children }: PropsWithChildren) {
                         MVP
                       </span>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Track learning, share progress
-                    </p>
+                    {mySchool && (
+                      <p className="text-xs text-muted-foreground mt-1 truncate max-w-[140px]">
+                        {mySchool.school.name}
+                      </p>
+                    )}
+                    {!mySchool && (
+                      <p className="text-xs text-muted-foreground mt-1">Track learning, share progress</p>
+                    )}
                   </div>
                 </div>
 
@@ -136,9 +171,15 @@ export default function AppShell({ children }: PropsWithChildren) {
                     <p className="text-sm font-semibold truncate" data-testid="user-name">
                       {name}
                     </p>
-                    <p className="text-xs text-muted-foreground truncate" data-testid="user-email">
-                      {user?.email ?? "Signed in with Replit"}
-                    </p>
+                    {role ? (
+                      <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 mt-0.5", ROLE_COLORS[role])}>
+                        {ROLE_LABELS[role]}
+                      </Badge>
+                    ) : (
+                      <p className="text-xs text-muted-foreground truncate" data-testid="user-email">
+                        {user?.email ?? "Signed in with Replit"}
+                      </p>
+                    )}
                   </div>
 
                   <Button
@@ -158,6 +199,13 @@ export default function AppShell({ children }: PropsWithChildren) {
           </aside>
 
           <main className="min-w-0">
+            {isReadOnly && (
+              <div className="mb-4 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+                <ShieldCheck className="h-4 w-4 shrink-0" />
+                <span>You have read-only access as School Head — you can view and print, but not edit.</span>
+              </div>
+            )}
+
             <div className="glass grain-overlay rounded-2xl shadow-premium border border-border/60 overflow-hidden">
               <div className="p-5 sm:p-6 lg:p-8">
                 {children}

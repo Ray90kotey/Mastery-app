@@ -1094,4 +1094,129 @@ export async function registerRoutes(_server: Server, app: Express) {
     if (!fs.existsSync(filePath)) return res.status(404).json({ message: "Report not found" });
     res.sendFile(filePath);
   });
+
+  // ─── School / Multi-user Routes ─────────────────────────────────────────────
+
+  // Get my school and role
+  app.get("/api/school", isAuthenticated, async (req: any, res) => {
+    const userId = getTeacherId(req);
+    const result = await storage.getMySchool(userId);
+    if (!result) return res.status(404).json({ message: "No school found" });
+    res.json(result);
+  });
+
+  // Create school (first-time setup)
+  app.post("/api/school", isAuthenticated, async (req: any, res) => {
+    const userId = getTeacherId(req);
+    const { name } = req.body;
+    if (!name?.trim()) return res.status(400).json({ message: "School name is required" });
+    // Check if user already has a school
+    const existing = await storage.getMySchool(userId);
+    if (existing) return res.status(409).json({ message: "You are already a member of a school" });
+    const result = await storage.createSchool(userId, name.trim());
+    res.status(201).json(result);
+  });
+
+  // ─── Admin-only routes (require admin role) ──────────────────────────────────
+
+  async function requireAdmin(req: any, res: any): Promise<{ schoolId: number; userId: string } | null> {
+    const userId = getTeacherId(req);
+    const mySchool = await storage.getMySchool(userId);
+    if (!mySchool) { res.status(403).json({ message: "No school membership" }); return null; }
+    if (mySchool.role !== "admin") { res.status(403).json({ message: "Admin access required" }); return null; }
+    return { schoolId: mySchool.school.id, userId };
+  }
+
+  async function requireAdminOrHead(req: any, res: any): Promise<{ schoolId: number; userId: string; role: string } | null> {
+    const userId = getTeacherId(req);
+    const mySchool = await storage.getMySchool(userId);
+    if (!mySchool) { res.status(403).json({ message: "No school membership" }); return null; }
+    if (mySchool.role !== "admin" && mySchool.role !== "school_head") {
+      res.status(403).json({ message: "Admin or school head access required" }); return null;
+    }
+    return { schoolId: mySchool.school.id, userId, role: mySchool.role };
+  }
+
+  // List school members
+  app.get("/api/admin/members", isAuthenticated, async (req: any, res) => {
+    const ctx = await requireAdminOrHead(req, res);
+    if (!ctx) return;
+    const members = await storage.listSchoolMembers(ctx.schoolId);
+    res.json(members);
+  });
+
+  // Remove a member
+  app.delete("/api/admin/members/:userId", isAuthenticated, async (req: any, res) => {
+    const ctx = await requireAdmin(req, res);
+    if (!ctx) return;
+    const targetUserId = req.params.userId;
+    if (targetUserId === ctx.userId) return res.status(400).json({ message: "Cannot remove yourself" });
+    const ok = await storage.removeSchoolMember(ctx.schoolId, targetUserId);
+    if (!ok) return res.status(404).json({ message: "Member not found" });
+    res.json({ success: true });
+  });
+
+  // List invitations
+  app.get("/api/admin/invitations", isAuthenticated, async (req: any, res) => {
+    const ctx = await requireAdminOrHead(req, res);
+    if (!ctx) return;
+    const invs = await storage.listInvitations(ctx.schoolId);
+    res.json(invs);
+  });
+
+  // Create invitation
+  app.post("/api/admin/invitations", isAuthenticated, async (req: any, res) => {
+    const ctx = await requireAdmin(req, res);
+    if (!ctx) return;
+    const { role, inviteeName, linkedStudentId } = req.body;
+    if (!role) return res.status(400).json({ message: "Role is required" });
+    const inv = await storage.createInvitation(ctx.schoolId, ctx.userId, { role, inviteeName, linkedStudentId });
+    res.status(201).json(inv);
+  });
+
+  // Delete invitation
+  app.delete("/api/admin/invitations/:id", isAuthenticated, async (req: any, res) => {
+    const ctx = await requireAdmin(req, res);
+    if (!ctx) return;
+    const id = Number(req.params.id);
+    const ok = await storage.deleteInvitation(id, ctx.schoolId);
+    if (!ok) return res.status(404).json({ message: "Invitation not found" });
+    res.json({ success: true });
+  });
+
+  // School overview (admin / school_head)
+  app.get("/api/school/overview", isAuthenticated, async (req: any, res) => {
+    const ctx = await requireAdminOrHead(req, res);
+    if (!ctx) return;
+    const overview = await storage.getSchoolOverview(ctx.schoolId);
+    res.json(overview);
+  });
+
+  // ─── Invitation acceptance (public preview, auth required to accept) ─────────
+
+  // Preview invitation (no auth required — shows school name/role before login)
+  app.get("/api/invite/:token", async (req: any, res) => {
+    const { token } = req.params;
+    const preview = await storage.getInvitationPreview(token);
+    if (!preview) return res.status(404).json({ message: "Invitation not found or already used" });
+    res.json(preview);
+  });
+
+  // Accept invitation (auth required)
+  app.post("/api/invite/:token/accept", isAuthenticated, async (req: any, res) => {
+    const userId = getTeacherId(req);
+    const { token } = req.params;
+    const result = await storage.acceptInvitation(token, userId);
+    if (!result) return res.status(404).json({ message: "Invitation not found or already used" });
+    res.json(result);
+  });
+
+  // ─── Student portal ──────────────────────────────────────────────────────────
+
+  app.get("/api/student/portal", isAuthenticated, async (req: any, res) => {
+    const userId = getTeacherId(req);
+    const data = await storage.getStudentPortalData(userId);
+    if (!data) return res.status(404).json({ message: "No student record linked to your account" });
+    res.json(data);
+  });
 }

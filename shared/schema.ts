@@ -33,6 +33,7 @@ export const students = pgTable(
     parentEmail: text("parent_email"),
     parentPhone: text("parent_phone"),
     image: text("image"), // base64 student photo
+    userId: varchar("user_id"), // linked Replit userId for student login
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => [
@@ -156,6 +157,42 @@ export const settings = pgTable("settings", {
   schoolName: text("school_name").notNull().default(""),
   schoolLogo: text("school_logo"), // base64 or URL
   handwrittenSignature: text("handwritten_signature"), // base64 or URL
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ─── Multi-user / Role system ──────────────────────────────────────────────────
+
+export const schools = pgTable("schools", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  name: text("name").notNull(),
+  createdBy: varchar("created_by").notNull(), // userId of the admin who created it
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const schoolMembers = pgTable(
+  "school_members",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    schoolId: integer("school_id").notNull(),
+    userId: varchar("user_id").notNull(),
+    role: varchar("role").notNull(), // 'admin' | 'school_head' | 'teacher' | 'student'
+    linkedStudentId: integer("linked_student_id"), // for student role: links to students.id
+    invitedBy: varchar("invited_by"),
+    joinedAt: timestamp("joined_at").defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("school_members_school_user_uq").on(t.schoolId, t.userId)],
+);
+
+export const invitations = pgTable("invitations", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  schoolId: integer("school_id").notNull(),
+  token: varchar("token").notNull().unique(),
+  role: varchar("role").notNull(), // 'school_head' | 'teacher' | 'student'
+  inviteeName: text("invitee_name"), // optional display name / student name
+  linkedStudentId: integer("linked_student_id"), // for student invites
+  invitedBy: varchar("invited_by").notNull(),
+  used: text("used").notNull().default("no"), // 'yes' | 'no'
+  usedBy: varchar("used_by"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -437,4 +474,37 @@ export type ReportResponse = {
   classId?: number;
   fileName: string;
   url: string;
+};
+
+// ─── Multi-user types ──────────────────────────────────────────────────────────
+
+export type SchoolRole = "admin" | "school_head" | "teacher" | "student";
+
+export type School = typeof schools.$inferSelect;
+export type SchoolMember = typeof schoolMembers.$inferSelect;
+export type Invitation = typeof invitations.$inferSelect;
+
+export type SchoolMemberWithUser = SchoolMember & {
+  email: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  profileImageUrl: string | null;
+  studentName?: string | null;
+};
+
+export type InvitationWithDetails = Invitation & {
+  invitedByName?: string | null;
+};
+
+export type MySchoolResponse = {
+  school: School;
+  role: SchoolRole;
+  memberId: number;
+  linkedStudentId: number | null;
+};
+
+export type InvitePreviewResponse = {
+  schoolName: string;
+  role: SchoolRole;
+  inviteeName: string | null;
 };

@@ -12,6 +12,9 @@ import {
   weeks,
   subjects,
   classSubjects,
+  schools,
+  schoolMembers,
+  invitations,
   type AcademicYearResponse,
   type AssessmentResponse,
   type ClassResponse,
@@ -40,7 +43,14 @@ import {
   masteryBands,
   type AssessmentType,
   type TrendIndicator,
+  type MySchoolResponse,
+  type SchoolMemberWithUser,
+  type InvitationWithDetails,
+  type School,
+  type SchoolRole,
+  type InvitePreviewResponse,
 } from "@shared/schema";
+import { users } from "@shared/models/auth";
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 
 export interface IStorage {
@@ -184,6 +194,23 @@ export interface IStorage {
     teacherId: string,
     classId: number,
   ): Promise<any | undefined>;
+
+  // School (multi-user)
+  getMySchool(userId: string): Promise<MySchoolResponse | null>;
+  createSchool(userId: string, name: string): Promise<MySchoolResponse>;
+  listSchoolMembers(schoolId: number): Promise<SchoolMemberWithUser[]>;
+  removeSchoolMember(schoolId: number, userId: string): Promise<boolean>;
+  createInvitation(
+    schoolId: number,
+    invitedBy: string,
+    data: { role: string; inviteeName?: string; linkedStudentId?: number },
+  ): Promise<InvitationWithDetails>;
+  listInvitations(schoolId: number): Promise<InvitationWithDetails[]>;
+  deleteInvitation(id: number, schoolId: number): Promise<boolean>;
+  getInvitationPreview(token: string): Promise<InvitePreviewResponse | null>;
+  acceptInvitation(token: string, userId: string): Promise<MySchoolResponse | null>;
+  getSchoolOverview(schoolId: number): Promise<any>;
+  getStudentPortalData(userId: string): Promise<any | null>;
 }
 
 function classifyMasteryLevel(score: number) {
@@ -1021,6 +1048,205 @@ export class DatabaseStorage implements IStorage {
     }
 
     return { class: cls, subjects: result };
+  }
+
+  // ─── School / Multi-user methods ────────────────────────────────────────────
+
+  async getMySchool(userId: string): Promise<MySchoolResponse | null> {
+    const [member] = await db
+      .select()
+      .from(schoolMembers)
+      .where(eq(schoolMembers.userId, userId))
+      .limit(1);
+    if (!member) return null;
+    const [school] = await db.select().from(schools).where(eq(schools.id, member.schoolId)).limit(1);
+    if (!school) return null;
+    return { school, role: member.role as SchoolRole, memberId: member.id, linkedStudentId: member.linkedStudentId ?? null };
+  }
+
+  async createSchool(userId: string, name: string): Promise<MySchoolResponse> {
+    const [school] = await db.insert(schools).values({ name, createdBy: userId }).returning();
+    const [member] = await db
+      .insert(schoolMembers)
+      .values({ schoolId: school.id, userId, role: "admin" })
+      .returning();
+    return { school, role: "admin", memberId: member.id, linkedStudentId: null };
+  }
+
+  async listSchoolMembers(schoolId: number): Promise<SchoolMemberWithUser[]> {
+    const rows = await db
+      .select({
+        id: schoolMembers.id,
+        schoolId: schoolMembers.schoolId,
+        userId: schoolMembers.userId,
+        role: schoolMembers.role,
+        linkedStudentId: schoolMembers.linkedStudentId,
+        invitedBy: schoolMembers.invitedBy,
+        joinedAt: schoolMembers.joinedAt,
+        email: users.email,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        profileImageUrl: users.profileImageUrl,
+      })
+      .from(schoolMembers)
+      .leftJoin(users, eq(schoolMembers.userId, users.id))
+      .where(eq(schoolMembers.schoolId, schoolId));
+
+    const result: SchoolMemberWithUser[] = [];
+    for (const row of rows) {
+      let studentName: string | null = null;
+      if (row.linkedStudentId) {
+        const [stu] = await db.select().from(students).where(eq(students.id, row.linkedStudentId)).limit(1);
+        studentName = stu?.fullName ?? null;
+      }
+      result.push({ ...row, studentName });
+    }
+    return result;
+  }
+
+  async removeSchoolMember(schoolId: number, userId: string): Promise<boolean> {
+    const deleted = await db
+      .delete(schoolMembers)
+      .where(and(eq(schoolMembers.schoolId, schoolId), eq(schoolMembers.userId, userId)))
+      .returning();
+    return deleted.length > 0;
+  }
+
+  async createInvitation(
+    schoolId: number,
+    invitedBy: string,
+    data: { role: string; inviteeName?: string; linkedStudentId?: number },
+  ): Promise<InvitationWithDetails> {
+    const token = crypto.randomUUID();
+    const [inv] = await db
+      .insert(invitations)
+      .values({
+        schoolId,
+        token,
+        role: data.role,
+        inviteeName: data.inviteeName ?? null,
+        linkedStudentId: data.linkedStudentId ?? null,
+        invitedBy,
+      })
+      .returning();
+    return { ...inv, invitedByName: null };
+  }
+
+  async listInvitations(schoolId: number): Promise<InvitationWithDetails[]> {
+    const rows = await db
+      .select()
+      .from(invitations)
+      .where(eq(invitations.schoolId, schoolId))
+      .orderBy(desc(invitations.createdAt));
+    return rows.map((r) => ({ ...r, invitedByName: null }));
+  }
+
+  async deleteInvitation(id: number, schoolId: number): Promise<boolean> {
+    const deleted = await db
+      .delete(invitations)
+      .where(and(eq(invitations.id, id), eq(invitations.schoolId, schoolId)))
+      .returning();
+    return deleted.length > 0;
+  }
+
+  async getInvitationPreview(token: string): Promise<InvitePreviewResponse | null> {
+    const [inv] = await db.select().from(invitations).where(eq(invitations.token, token)).limit(1);
+    if (!inv || inv.used === "yes") return null;
+    const [school] = await db.select().from(schools).where(eq(schools.id, inv.schoolId)).limit(1);
+    if (!school) return null;
+    return { schoolName: school.name, role: inv.role as SchoolRole, inviteeName: inv.inviteeName };
+  }
+
+  async acceptInvitation(token: string, userId: string): Promise<MySchoolResponse | null> {
+    const [inv] = await db.select().from(invitations).where(eq(invitations.token, token)).limit(1);
+    if (!inv || inv.used === "yes") return null;
+
+    // Check if already a member
+    const [existing] = await db
+      .select()
+      .from(schoolMembers)
+      .where(and(eq(schoolMembers.schoolId, inv.schoolId), eq(schoolMembers.userId, userId)))
+      .limit(1);
+    if (existing) {
+      // Already a member — just mark invite used and return
+      await db.update(invitations).set({ used: "yes", usedBy: userId }).where(eq(invitations.id, inv.id));
+      const [school] = await db.select().from(schools).where(eq(schools.id, inv.schoolId)).limit(1);
+      return { school: school!, role: existing.role as SchoolRole, memberId: existing.id, linkedStudentId: existing.linkedStudentId ?? null };
+    }
+
+    // Mark invite used
+    await db.update(invitations).set({ used: "yes", usedBy: userId }).where(eq(invitations.id, inv.id));
+
+    // Create member
+    const [member] = await db
+      .insert(schoolMembers)
+      .values({
+        schoolId: inv.schoolId,
+        userId,
+        role: inv.role,
+        linkedStudentId: inv.linkedStudentId ?? null,
+        invitedBy: inv.invitedBy,
+      })
+      .returning();
+
+    // If student role, link student record
+    if (inv.role === "student" && inv.linkedStudentId) {
+      await db.update(students).set({ userId }).where(eq(students.id, inv.linkedStudentId));
+    }
+
+    const [school] = await db.select().from(schools).where(eq(schools.id, inv.schoolId)).limit(1);
+    return { school: school!, role: member.role as SchoolRole, memberId: member.id, linkedStudentId: member.linkedStudentId ?? null };
+  }
+
+  async getSchoolOverview(schoolId: number): Promise<any> {
+    const members = await this.listSchoolMembers(schoolId);
+    const teacherIds = members
+      .filter((m) => m.role === "admin" || m.role === "teacher")
+      .map((m) => m.userId);
+
+    let totalClasses = 0;
+    let totalStudents = 0;
+    const classBreakdown: any[] = [];
+
+    for (const tid of teacherIds) {
+      const clsList = await db.select().from(classes).where(eq(classes.teacherId, tid));
+      totalClasses += clsList.length;
+      for (const cls of clsList) {
+        const stuList = await db.select().from(students).where(eq(students.classId, cls.id));
+        totalStudents += stuList.length;
+        classBreakdown.push({ classId: cls.id, className: cls.name, teacherId: tid, studentCount: stuList.length });
+      }
+    }
+
+    return {
+      schoolId,
+      memberCount: members.length,
+      teacherCount: teacherIds.length,
+      totalClasses,
+      totalStudents,
+      members,
+      classBreakdown,
+    };
+  }
+
+  async getStudentPortalData(userId: string): Promise<any | null> {
+    // Find the student linked to this userId
+    const [member] = await db
+      .select()
+      .from(schoolMembers)
+      .where(and(eq(schoolMembers.userId, userId), eq(schoolMembers.role, "student")))
+      .limit(1);
+    if (!member?.linkedStudentId) return null;
+
+    const studentId = member.linkedStudentId;
+    const [student] = await db.select().from(students).where(eq(students.id, studentId)).limit(1);
+    if (!student) return null;
+
+    const cls = await db.select().from(classes).where(eq(classes.id, student.classId)).limit(1);
+    const teacherId = cls[0]?.teacherId ?? "";
+    const mastery = await this.getStudentMastery(teacherId, studentId);
+
+    return { student, class: cls[0] ?? null, mastery };
   }
 }
 
