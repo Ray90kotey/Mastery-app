@@ -179,6 +179,11 @@ export interface IStorage {
     teacherId: string,
     yearId: number,
   ): Promise<any | undefined>;
+
+  getClassCurriculum(
+    teacherId: string,
+    classId: number,
+  ): Promise<any | undefined>;
 }
 
 function classifyMasteryLevel(score: number) {
@@ -951,6 +956,71 @@ export class DatabaseStorage implements IStorage {
     }
 
     return { year, terms: result };
+  }
+
+  async getClassCurriculum(teacherId: string, classId: number): Promise<any | undefined> {
+    const [cls] = await db
+      .select()
+      .from(classes)
+      .where(and(eq(classes.id, classId), eq(classes.teacherId, teacherId)));
+    if (!cls) return undefined;
+
+    const allSubjects = await db
+      .select()
+      .from(subjects)
+      .where(eq(subjects.teacherId, teacherId))
+      .orderBy(asc(subjects.name));
+
+    const result: any[] = [];
+
+    for (const subject of allSubjects) {
+      const lessonsList = await db
+        .select()
+        .from(lessons)
+        .where(and(eq(lessons.classId, classId), eq(lessons.subjectId, subject.id)))
+        .orderBy(asc(lessons.createdAt));
+
+      if (lessonsList.length === 0) continue;
+
+      const enriched: any[] = [];
+      for (const lesson of lessonsList) {
+        let weekLabel: string | null = null;
+        let weekNumber: number | null = null;
+        let termName: string | null = null;
+        let yearName: string | null = null;
+
+        if (lesson.weekId) {
+          const rows = await db
+            .select({
+              weekNumber: weeks.weekNumber,
+              termName: terms.name,
+              yearName: academicYears.name,
+            })
+            .from(weeks)
+            .innerJoin(terms, eq(weeks.termId, terms.id))
+            .innerJoin(academicYears, eq(terms.academicYearId, academicYears.id))
+            .where(eq(weeks.id, lesson.weekId));
+          if (rows[0]) {
+            weekNumber = rows[0].weekNumber;
+            termName = rows[0].termName;
+            yearName = rows[0].yearName;
+            weekLabel = `Week ${rows[0].weekNumber} — ${rows[0].termName}, ${rows[0].yearName}`;
+          }
+        }
+
+        const outcomesList = await db
+          .select()
+          .from(outcomes)
+          .where(eq(outcomes.lessonId, lesson.id))
+          .orderBy(asc(outcomes.description));
+
+        enriched.push({ ...lesson, weekLabel, weekNumber, termName, yearName, outcomes: outcomesList });
+      }
+
+      result.push({ subject, lessons: enriched });
+    }
+
+    return { class: cls, subjects: result };
   }
 }
 

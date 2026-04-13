@@ -330,6 +330,170 @@ export async function registerRoutes(_server: Server, app: Express) {
     res.status(201).json(created);
   });
 
+  // Class Curriculum (JSON for UI)
+  app.get("/api/classes/:classId/curriculum", isAuthenticated, async (req: any, res) => {
+    const teacherId = getTeacherId(req);
+    const classId = Number(req.params.classId);
+    const curriculum = await storage.getClassCurriculum(teacherId, classId);
+    if (!curriculum) return res.status(404).json({ message: "Class not found" });
+    res.json(curriculum);
+  });
+
+  // Class Curriculum PDF
+  app.post("/api/classes/:classId/curriculum-pdf", isAuthenticated, async (req: any, res) => {
+    const teacherId = getTeacherId(req);
+    const classId = Number(req.params.classId);
+
+    const curriculum = await storage.getClassCurriculum(teacherId, classId);
+    if (!curriculum) return res.status(404).json({ message: "Class not found" });
+
+    const teacherSettings = await storage.getSettings(teacherId);
+    const schoolName = teacherSettings?.schoolName || "Academic Institution";
+
+    const reportsDir = ensureReportsDir();
+    const fileName = `curriculum_class_${classId}_${Date.now()}.pdf`;
+    const filePath = path.join(reportsDir, fileName);
+
+    await new Promise<void>((resolve, reject) => {
+      const doc = new PDFDocument({ size: "A4", margin: MARGIN, autoFirstPage: true });
+      const stream = fs.createWriteStream(filePath);
+      doc.pipe(stream);
+
+      let logoBuffer: Buffer | null = null;
+      if (teacherSettings?.schoolLogo) {
+        try { logoBuffer = Buffer.from(teacherSettings.schoolLogo.split(",")[1], "base64"); } catch {}
+      }
+
+      const pageTitle = `CURRICULUM — ${curriculum.class.name.toUpperCase()}`;
+      drawPageHeader(doc, schoolName, logoBuffer, pageTitle);
+      let y = 106;
+
+      if (curriculum.subjects.length === 0) {
+        doc.fillColor("#64748B").fontSize(11).font("Helvetica").text("No lessons have been added for this class yet.", MARGIN, y + 20);
+        doc.end();
+        stream.on("finish", () => resolve());
+        stream.on("error", (e: any) => reject(e));
+        return;
+      }
+
+      const SUBJECT_COLORS = ["#0F4C5C", "#1E6A7A", "#2A8BA0", "#C97B00", "#1B5E73", "#E8920A"];
+
+      curriculum.subjects.forEach((subjectObj: any, subIdx: number) => {
+        // Page break check
+        if (y > PAGE_H - 140) { doc.addPage(); drawPageHeader(doc, schoolName, logoBuffer, pageTitle); y = 106; }
+
+        // Subject header bar
+        const subjectColor = SUBJECT_COLORS[subIdx % SUBJECT_COLORS.length];
+        doc.rect(MARGIN, y, CONTENT_W, 30).fill(subjectColor);
+        doc.fillColor("#FFFFFF").fontSize(12).font("Helvetica-Bold").text(subjectObj.subject.name.toUpperCase(), MARGIN + 14, y + 9);
+        const totalLessons = subjectObj.lessons.length;
+        const scheduled = subjectObj.lessons.filter((l: any) => l.weekId).length;
+        doc.fillColor("rgba(255,255,255,0.7)").fontSize(8).font("Helvetica").text(
+          `${totalLessons} lesson${totalLessons !== 1 ? "s" : ""} • ${scheduled} scheduled`,
+          MARGIN + CONTENT_W - 130, y + 11
+        );
+        y += 30 + 6;
+
+        // Group lessons by weekId (null = unscheduled)
+        const weekGroups: Map<string, any[]> = new Map();
+        for (const lesson of subjectObj.lessons) {
+          const key = lesson.weekId ? `${lesson.weekLabel}||${lesson.weekId}` : "unscheduled";
+          if (!weekGroups.has(key)) weekGroups.set(key, []);
+          weekGroups.get(key)!.push(lesson);
+        }
+
+        // Sort: scheduled weeks first (by weekNumber), unscheduled last
+        const sortedKeys = Array.from(weekGroups.keys()).sort((a, b) => {
+          if (a === "unscheduled") return 1;
+          if (b === "unscheduled") return -1;
+          const wna = weekGroups.get(a)![0].weekNumber ?? 0;
+          const wnb = weekGroups.get(b)![0].weekNumber ?? 0;
+          return wna - wnb;
+        });
+
+        for (const key of sortedKeys) {
+          const groupLessons = weekGroups.get(key)!;
+          const isUnscheduled = key === "unscheduled";
+          const weekLabel = isUnscheduled ? "Unscheduled" : groupLessons[0].weekLabel;
+
+          if (y > PAGE_H - 100) { doc.addPage(); drawPageHeader(doc, schoolName, logoBuffer, pageTitle); y = 106; }
+
+          // Week group header
+          doc.rect(MARGIN + 2, y, CONTENT_W - 2, 20).fill(isUnscheduled ? "#F1F5F9" : "#EBF4F7");
+          doc.fillColor(isUnscheduled ? "#94A3B8" : "#0F4C5C").fontSize(9).font("Helvetica-Bold").text(
+            weekLabel.toUpperCase(), MARGIN + 14, y + 6
+          );
+          doc.fillColor("#94A3B8").fontSize(8).font("Helvetica").text(
+            `${groupLessons.length} lesson${groupLessons.length !== 1 ? "s" : ""}`,
+            MARGIN + CONTENT_W - 70, y + 6
+          );
+          y += 20 + 4;
+
+          for (const lesson of groupLessons) {
+            if (y > PAGE_H - 70) { doc.addPage(); drawPageHeader(doc, schoolName, logoBuffer, pageTitle); y = 106; }
+
+            const outcomesHeight = Math.max(22, 22 + lesson.outcomes.length * 14);
+            doc.rect(MARGIN + 12, y, CONTENT_W - 12, outcomesHeight).fill("#FFFFFF");
+
+            // Bullet
+            doc.circle(MARGIN + 24, y + 10, 3).fill(subjectColor);
+            // Lesson title
+            doc.fillColor("#0F172A").fontSize(9.5).font("Helvetica-Bold").text(lesson.title, MARGIN + 32, y + 3, { width: CONTENT_W - 50 });
+            y += 18;
+
+            for (const outcome of lesson.outcomes) {
+              if (y > PAGE_H - 50) { doc.addPage(); drawPageHeader(doc, schoolName, logoBuffer, pageTitle); y = 106; }
+              doc.fillColor("#94A3B8").fontSize(8).font("Helvetica").text("›", MARGIN + 36, y);
+              doc.fillColor("#475569").fontSize(8).font("Helvetica").text(outcome.description, MARGIN + 46, y, { width: CONTENT_W - 62 });
+              y += 13;
+            }
+
+            if (lesson.outcomes.length === 0) {
+              doc.fillColor("#CBD5E1").fontSize(7.5).font("Helvetica").text("No outcomes added", MARGIN + 46, y);
+              y += 12;
+            }
+
+            y += 4;
+            doc.moveTo(MARGIN + 12, y).lineTo(MARGIN + CONTENT_W, y).lineWidth(0.2).stroke("#E2E8F0");
+          }
+
+          y += 10;
+        }
+
+        y += 12;
+      });
+
+      // Summary footer
+      if (y < PAGE_H - 80) {
+        const totalLessons = curriculum.subjects.reduce((s: number, sub: any) => s + sub.lessons.length, 0);
+        const totalOutcomes = curriculum.subjects.reduce((s: number, sub: any) => s + sub.lessons.reduce((ls: number, l: any) => ls + l.outcomes.length, 0), 0);
+        y += 6;
+        doc.rect(MARGIN, y, CONTENT_W, 24).fill("#F8FAFC").stroke("#E2E8F0");
+        doc.fillColor("#475569").fontSize(8).font("Helvetica").text(
+          `${curriculum.subjects.length} subject${curriculum.subjects.length !== 1 ? "s" : ""} • ${totalLessons} lessons • ${totalOutcomes} outcomes`,
+          MARGIN + 12, y + 8
+        );
+        doc.fillColor("#94A3B8").fontSize(8).font("Helvetica").text(
+          new Date().toLocaleDateString("en-GH", { year: "numeric", month: "long", day: "numeric" }),
+          MARGIN + CONTENT_W - 130, y + 8
+        );
+      }
+
+      const footerY = PAGE_H - 45;
+      doc.moveTo(MARGIN, footerY).lineTo(PAGE_W - MARGIN, footerY).lineWidth(0.5).stroke("#E2E8F0");
+      doc.fillColor("#94A3B8").fontSize(7).font("Helvetica").text(
+        "This curriculum was generated by Mastery.",
+        MARGIN, footerY + 10, { align: "center", width: CONTENT_W }
+      );
+
+      doc.end();
+      stream.on("finish", () => resolve());
+      stream.on("error", (e: any) => reject(e));
+    });
+
+    res.status(201).json({ classId, fileName, url: `/api/reports/${fileName}` });
+  });
+
   // Class Subjects
   app.get(api.classSubjects.list.path, isAuthenticated, async (req, res) => {
     const teacherId = getTeacherId(req);

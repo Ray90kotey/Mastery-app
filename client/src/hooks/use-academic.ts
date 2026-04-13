@@ -305,6 +305,7 @@ export function useCreateSubjectLesson() {
     },
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ["/api/classes", vars.classId, "subjects", vars.subjectId, "lessons"] });
+      qc.invalidateQueries({ queryKey: ["/api/classes", vars.classId, "curriculum"] });
     },
   });
 }
@@ -361,6 +362,40 @@ export function useCreateOutcome() {
     onSuccess: async (_data, vars) => {
       const lessonId = (vars as any).lessonId as number;
       await qc.invalidateQueries({ queryKey: [api.academic.outcomes.listByLesson.path, lessonId] });
+      await qc.invalidateQueries({ queryKey: ["/api/classes"] });
+    },
+  });
+}
+
+export type CurriculumLesson = {
+  id: number;
+  title: string;
+  weekId: number | null;
+  weekLabel: string | null;
+  weekNumber: number | null;
+  termName: string | null;
+  yearName: string | null;
+  outcomes: { id: number; description: string; lessonId: number; createdAt: string }[];
+};
+
+export type CurriculumSubject = {
+  subject: { id: number; name: string };
+  lessons: CurriculumLesson[];
+};
+
+export type ClassCurriculum = {
+  class: { id: number; name: string };
+  subjects: CurriculumSubject[];
+};
+
+export function useClassCurriculum(classId: number | null) {
+  return useQuery({
+    enabled: typeof classId === "number",
+    queryKey: ["/api/classes", classId, "curriculum"],
+    queryFn: async () => {
+      const res = await fetch(`/api/classes/${classId}/curriculum`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch curriculum");
+      return res.json() as Promise<ClassCurriculum>;
     },
   });
 }
