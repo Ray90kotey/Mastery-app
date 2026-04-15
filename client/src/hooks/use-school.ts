@@ -1,16 +1,20 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/use-auth";
 import type { MySchoolResponse, SchoolMemberWithUser, InvitationWithDetails, InvitePreviewResponse } from "@shared/schema";
 
 export function useMySchool() {
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+
   return useQuery<MySchoolResponse | null>({
     queryKey: ["/api/school"],
     queryFn: async () => {
       const res = await fetch("/api/school", { credentials: "include" });
-      if (res.status === 404 || res.status === 401) return null;
-      if (!res.ok) throw new Error(await res.text());
+      if (res.status === 404) return null;  // no school yet
+      if (!res.ok) return null;             // 401 or other error — treat as no school, but gate prevents modal
       return res.json();
     },
+    enabled: !authLoading && isAuthenticated,
     retry: false,
     staleTime: 1000 * 60 * 5,
   });

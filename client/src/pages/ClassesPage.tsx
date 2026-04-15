@@ -246,12 +246,14 @@ export default function ClassesPage() {
                   const active = c.id === selectedClassId;
                   const created = safeDate((c as any).createdAt);
                   return (
-                    <button
+                    <div
                       key={c.id}
-                      type="button"
+                      role="button"
+                      tabIndex={0}
                       onClick={() => setSelectedClassId(c.id)}
+                      onKeyDown={(e) => e.key === "Enter" && setSelectedClassId(c.id)}
                       className={[
-                        "w-full text-left rounded-2xl border px-4 py-3 transition-all duration-200",
+                        "w-full text-left rounded-2xl border px-4 py-3 transition-all duration-200 cursor-pointer",
                         "hover:bg-muted/50 hover:shadow-sm",
                         "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ring/15",
                         active
@@ -336,7 +338,7 @@ export default function ClassesPage() {
                           </AlertDialog>
                         </div>
                       </div>
-                    </button>
+                    </div>
                   );
                 })}
               </div>

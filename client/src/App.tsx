@@ -107,10 +107,10 @@ function SchoolGate({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // mySchool is null (not undefined) when the 404/no school came back
+    // mySchool is null only when 404 (no school yet); undefined means still loading or unauthenticated
     if (mySchool === null) {
       setShowSetup(true);
-    } else if (mySchool) {
+    } else if (mySchool && mySchool.school) {
       setShowSetup(false);
     }
   }, [isAuthenticated, authLoading, schoolLoading, mySchool]);
