@@ -140,18 +140,27 @@ export default function AcademicSetupPage() {
                 {yearsQ.data!.map((y) => {
                   const active = y.id === yearId;
                   return (
-                    <button
+                    <div
                       key={y.id}
-                      type="button"
+                      role="button"
+                      tabIndex={0}
                       onClick={() => {
                         setYearId(y.id);
                         setTermId(null);
                         setWeekId(null);
                         setLessonId(null);
                       }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          setYearId(y.id);
+                          setTermId(null);
+                          setWeekId(null);
+                          setLessonId(null);
+                        }
+                      }}
                       data-testid={`academic-year-item-${y.id}`}
                       className={[
-                        "w-full text-left rounded-2xl border px-4 py-3 transition-all duration-200",
+                        "w-full text-left rounded-2xl border px-4 py-3 transition-all duration-200 cursor-pointer",
                         "hover:bg-muted/50 hover:shadow-sm",
                         active ? "bg-secondary border-border shadow-sm" : "bg-card/60 border-border/70",
                       ].join(" ")}
@@ -206,7 +215,7 @@ export default function AcademicSetupPage() {
                           </Button>
                         </div>
                       </div>
-                    </button>
+                    </div>
                   );
                 })}
               </div>

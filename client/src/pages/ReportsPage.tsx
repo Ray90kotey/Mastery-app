@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Download, FileText, Users, GraduationCap } from "lucide-react";
+import { Download, FileText, Users, GraduationCap, MessageCircle } from "lucide-react";
 
 export default function ReportsPage() {
   const { toast } = useToast();
@@ -119,35 +119,59 @@ export default function ReportsPage() {
                   ) : (
                     <div className="space-y-2" data-testid="reports-student-list">
                       {studentsQ.data!.map((s) => (
-                        <button
+                        <div
                           key={s.id}
-                          type="button"
-                          onClick={async () => {
-                            try {
-                              const result = await reportM.mutateAsync({ studentId: s.id });
-                              setLastReport(result);
-                              toast({ title: "Report generated", description: `${s.fullName}` });
-                            } catch (e: any) {
-                              if (isUnauthorizedError(e)) return redirectToLogin(toast as any);
-                              toast({ title: "Could not generate report", description: e?.message ?? "Try again", variant: "destructive" });
-                            }
-                          }}
-                          disabled={reportM.isPending}
-                          className="w-full text-left rounded-2xl border border-border/70 bg-card/60 px-4 py-3 hover:bg-muted/50 hover:shadow-sm transition-all duration-200 disabled:opacity-60"
-                          data-testid={`reports-generate-student-${s.id}`}
+                          className="rounded-2xl border border-border/70 bg-card/60 px-4 py-3 transition-all duration-200"
+                          data-testid={`reports-student-row-${s.id}`}
                         >
                           <div className="flex items-center justify-between gap-3">
-                            <div className="min-w-0">
+                            <div className="min-w-0 flex-1">
                               <p className="font-semibold truncate">{s.fullName}</p>
-                              <p className="mt-1 text-xs text-muted-foreground truncate">
-                                Parent: {s.parentName || "—"} • {s.parentPhone || "No phone"}
+                              <p className="mt-0.5 text-xs text-muted-foreground truncate">
+                                {s.parentName || "No parent name"} {s.parentPhone ? `· ${s.parentPhone}` : ""}
                               </p>
                             </div>
-                            <div className="text-xs text-muted-foreground">
-                              {reportM.isPending ? "Working..." : "Generate"}
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {s.parentPhone && lastReport?.studentId === s.id && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="rounded-xl h-9 w-9 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                  title="Share via WhatsApp"
+                                  data-testid={`reports-whatsapp-student-${s.id}`}
+                                  onClick={() => {
+                                    const msg = encodeURIComponent(
+                                      `Hello${s.parentName ? " " + s.parentName : ""}, here is ${s.fullName}'s progress report from Mastery.\n\nDownload: ${lastReport.url}\n\nThank you.`
+                                    );
+                                    const phone = s.parentPhone!.replace(/\D/g, "");
+                                    window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
+                                  }}
+                                >
+                                  <MessageCircle className="h-4.5 w-4.5" />
+                                </Button>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="rounded-xl text-xs h-9"
+                                disabled={reportM.isPending}
+                                data-testid={`reports-generate-student-${s.id}`}
+                                onClick={async () => {
+                                  try {
+                                    const result = await reportM.mutateAsync({ studentId: s.id });
+                                    setLastReport({ ...result, studentId: s.id });
+                                    toast({ title: "Report ready", description: s.fullName });
+                                  } catch (e: any) {
+                                    if (isUnauthorizedError(e)) return redirectToLogin(toast as any);
+                                    toast({ title: "Could not generate report", description: e?.message ?? "Try again", variant: "destructive" });
+                                  }
+                                }}
+                              >
+                                {reportM.isPending ? "Working…" : <><Download className="h-3.5 w-3.5 mr-1" />PDF</>}
+                              </Button>
                             </div>
                           </div>
-                        </button>
+                        </div>
                       ))}
                     </div>
                   )

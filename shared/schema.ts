@@ -374,7 +374,7 @@ export type Assessment = typeof assessments.$inferSelect;
 export type InsertAssessment = z.infer<typeof insertAssessmentSchema>;
 export type CreateAssessmentRequest = InsertAssessment;
 export type UpdateAssessmentRequest = Partial<InsertAssessment>;
-export type AssessmentResponse = Assessment;
+export type AssessmentResponse = Assessment & { subjectId?: number | null; academicYearId?: number | null };
 
 export type StudentScore = typeof studentScores.$inferSelect;
 export type InsertStudentScore = z.infer<typeof insertStudentScoreSchema>;

@@ -12,6 +12,14 @@ function getTeacherId(req: any): string {
   return req.user?.claims?.sub || "demo-teacher";
 }
 
+async function getSchoolOwnerId(req: any): Promise<string> {
+  const userId = req.user?.claims?.sub;
+  if (!userId) return "demo-teacher";
+  const mySchool = await storage.getMySchool(userId);
+  if (!mySchool) return userId;
+  return mySchool.school.createdBy;
+}
+
 function ensureReportsDir() {
   const reportsDir = path.join(process.cwd(), "reports");
   if (!fs.existsSync(reportsDir)) {
@@ -36,14 +44,14 @@ export async function registerRoutes(_server: Server, app: Express) {
 
   // Settings
   app.get(api.settings.get.path, isAuthenticated, async (req, res) => {
-    const teacherId = getTeacherId(req);
+    const teacherId = await getSchoolOwnerId(req);
     const settings = await storage.getSettings(teacherId);
     res.json(settings || { teacherId, schoolName: "" });
   });
 
   app.put(api.settings.upsert.path, isAuthenticated, async (req, res) => {
     try {
-      const teacherId = getTeacherId(req);
+      const teacherId = await getSchoolOwnerId(req);
       const body = api.settings.upsert.input.parse(req.body);
       const settings = await storage.upsertSettings(teacherId, body);
       res.json(settings);
@@ -55,14 +63,14 @@ export async function registerRoutes(_server: Server, app: Express) {
 
   // Classes
   app.get(api.classes.list.path, isAuthenticated, async (req, res) => {
-    const teacherId = getTeacherId(req);
+    const teacherId = await getSchoolOwnerId(req);
     const classesList = await storage.listClasses(teacherId);
     res.json(classesList);
   });
 
   app.post(api.classes.create.path, isAuthenticated, async (req, res) => {
     try {
-      const teacherId = getTeacherId(req);
+      const teacherId = await getSchoolOwnerId(req);
       const body = api.classes.create.input.parse(req.body);
       const created = await storage.createClass(teacherId, body);
       res.status(201).json(created);
@@ -73,7 +81,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   });
 
   app.get(api.classes.get.path, isAuthenticated, async (req, res) => {
-    const teacherId = getTeacherId(req);
+    const teacherId = await getSchoolOwnerId(req);
     const id = Number(req.params.id);
     const cls = await storage.getClass(teacherId, id);
     if (!cls) return res.status(404).json({ message: "Class not found" });
@@ -81,7 +89,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   });
 
   app.delete(api.classes.delete.path, isAuthenticated, async (req, res) => {
-    const teacherId = getTeacherId(req);
+    const teacherId = await getSchoolOwnerId(req);
     const id = Number(req.params.id);
     const ok = await storage.deleteClass(teacherId, id);
     if (!ok) return res.status(404).json({ message: "Class not found" });
@@ -91,7 +99,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   // Students
   app.get(api.students.listByClass.path, isAuthenticated, async (req, res) => {
     try {
-      const teacherId = getTeacherId(req);
+      const teacherId = await getSchoolOwnerId(req);
       const classId = Number(req.params.classId);
       const studentsList = await storage.listStudentsByClass(teacherId, classId);
       if (studentsList === undefined) return res.status(404).json({ message: "Class not found" });
@@ -104,7 +112,7 @@ export async function registerRoutes(_server: Server, app: Express) {
 
   app.post(api.students.create.path, isAuthenticated, async (req, res) => {
     try {
-      const teacherId = getTeacherId(req);
+      const teacherId = await getSchoolOwnerId(req);
       const classId = Number(req.params.classId);
       const body = api.students.create.input.parse(req.body);
       const created = await storage.createStudent(teacherId, classId, body);
@@ -118,7 +126,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   });
 
   app.get(api.students.get.path, isAuthenticated, async (req, res) => {
-    const teacherId = getTeacherId(req);
+    const teacherId = await getSchoolOwnerId(req);
     const id = Number(req.params.id);
     const student = await storage.getStudent(teacherId, id);
     if (!student) return res.status(404).json({ message: "Student not found" });
@@ -126,7 +134,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   });
 
   app.delete(api.students.delete.path, isAuthenticated, async (req, res) => {
-    const teacherId = getTeacherId(req);
+    const teacherId = await getSchoolOwnerId(req);
     const id = Number(req.params.id);
     const ok = await storage.deleteStudent(teacherId, id);
     if (!ok) return res.status(404).json({ message: "Student not found" });
@@ -135,14 +143,14 @@ export async function registerRoutes(_server: Server, app: Express) {
 
   // Academic Structure
   app.get(api.academic.years.list.path, isAuthenticated, async (req, res) => {
-    const teacherId = getTeacherId(req);
+    const teacherId = await getSchoolOwnerId(req);
     const years = await storage.listAcademicYears(teacherId);
     res.json(years);
   });
 
   app.post(api.academic.years.create.path, isAuthenticated, async (req, res) => {
     try {
-      const teacherId = getTeacherId(req);
+      const teacherId = await getSchoolOwnerId(req);
       const body = api.academic.years.create.input.parse(req.body);
       const created = await storage.createAcademicYear(teacherId, body);
       res.status(201).json(created);
@@ -153,7 +161,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   });
 
   app.get(api.academic.terms.listByYear.path, isAuthenticated, async (req, res) => {
-    const teacherId = getTeacherId(req);
+    const teacherId = await getSchoolOwnerId(req);
     const yearId = Number(req.params.academicYearId);
     const termsList = await storage.listTermsByYear(teacherId, yearId);
     res.json(termsList);
@@ -161,7 +169,7 @@ export async function registerRoutes(_server: Server, app: Express) {
 
   app.post(api.academic.terms.create.path, isAuthenticated, async (req, res) => {
     try {
-      const teacherId = getTeacherId(req);
+      const teacherId = await getSchoolOwnerId(req);
       const yearId = Number(req.params.academicYearId);
       const body = api.academic.terms.create.input.parse(req.body);
       const created = await storage.createTerm(teacherId, yearId, body);
@@ -173,7 +181,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   });
 
   app.get(api.academic.weeks.listByTerm.path, isAuthenticated, async (req, res) => {
-    const teacherId = getTeacherId(req);
+    const teacherId = await getSchoolOwnerId(req);
     const termId = Number(req.params.termId);
     const weeksList = await storage.listWeeksByTerm(teacherId, termId);
     res.json(weeksList);
@@ -181,7 +189,7 @@ export async function registerRoutes(_server: Server, app: Express) {
 
   app.post(api.academic.weeks.create.path, isAuthenticated, async (req, res) => {
     try {
-      const teacherId = getTeacherId(req);
+      const teacherId = await getSchoolOwnerId(req);
       const termId = Number(req.params.termId);
       const body = api.academic.weeks.create.input.parse(req.body);
       const created = await storage.createWeek(teacherId, termId, body);
@@ -193,7 +201,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   });
 
   app.get(api.academic.lessons.listByWeek.path, isAuthenticated, async (req, res) => {
-    const teacherId = getTeacherId(req);
+    const teacherId = await getSchoolOwnerId(req);
     const weekId = Number(req.params.weekId);
     const lessonsList = await storage.listLessonsByWeek(teacherId, weekId);
     res.json(lessonsList);
@@ -201,7 +209,7 @@ export async function registerRoutes(_server: Server, app: Express) {
 
   app.post(api.academic.lessons.create.path, isAuthenticated, async (req, res) => {
     try {
-      const teacherId = getTeacherId(req);
+      const teacherId = await getSchoolOwnerId(req);
       const weekId = Number(req.params.weekId);
       const body = api.academic.lessons.create.input.parse(req.body);
       const created = await storage.createLesson(teacherId, weekId, body);
@@ -213,7 +221,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   });
 
   app.get(api.academic.outcomes.listByLesson.path, isAuthenticated, async (req, res) => {
-    const teacherId = getTeacherId(req);
+    const teacherId = await getSchoolOwnerId(req);
     const lessonId = Number(req.params.lessonId);
     const outcomesList = await storage.listOutcomesByLesson(teacherId, lessonId);
     res.json(outcomesList);
@@ -221,7 +229,7 @@ export async function registerRoutes(_server: Server, app: Express) {
 
   app.post(api.academic.outcomes.create.path, isAuthenticated, async (req, res) => {
     try {
-      const teacherId = getTeacherId(req);
+      const teacherId = await getSchoolOwnerId(req);
       const lessonId = Number(req.params.lessonId);
       const body = api.academic.outcomes.create.input.parse(req.body);
       const created = await storage.createOutcome(teacherId, lessonId, body);
@@ -234,7 +242,7 @@ export async function registerRoutes(_server: Server, app: Express) {
 
   // Assessments
   app.get(api.assessments.listByClass.path, isAuthenticated, async (req, res) => {
-    const teacherId = getTeacherId(req);
+    const teacherId = await getSchoolOwnerId(req);
     const classId = Number(req.params.classId);
     const assessmentsList = await storage.listAssessmentsByClass(teacherId, classId);
     res.json(assessmentsList);
@@ -242,7 +250,7 @@ export async function registerRoutes(_server: Server, app: Express) {
 
   app.post(api.assessments.create.path, isAuthenticated, async (req, res) => {
     try {
-      const teacherId = getTeacherId(req);
+      const teacherId = await getSchoolOwnerId(req);
       const classId = Number(req.params.classId);
       // Convert date string to Date object before validation
       const bodyWithDateParsed = {
@@ -259,7 +267,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   });
 
   app.get(api.assessments.get.path, isAuthenticated, async (req, res) => {
-    const teacherId = getTeacherId(req);
+    const teacherId = await getSchoolOwnerId(req);
     const id = Number(req.params.id);
     const assessment = await storage.getAssessment(teacherId, id);
     if (!assessment) return res.status(404).json({ message: "Assessment not found" });
@@ -267,7 +275,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   });
 
   app.delete(api.assessments.delete.path, isAuthenticated, async (req, res) => {
-    const teacherId = getTeacherId(req);
+    const teacherId = await getSchoolOwnerId(req);
     const id = Number(req.params.id);
     const ok = await storage.deleteAssessment(teacherId, id);
     if (!ok) return res.status(404).json({ message: "Assessment not found" });
@@ -277,7 +285,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   // Scores
   app.put(api.scores.upsert.path, isAuthenticated, async (req: any, res) => {
     try {
-      const teacherId = getTeacherId(req);
+      const teacherId = await getSchoolOwnerId(req);
       const assessmentId = Number(req.params.assessmentId);
       const body = api.scores.upsert.input.parse(req.body);
       const saved = await storage.upsertAssessmentScores(teacherId, assessmentId, body.scores);
@@ -291,14 +299,14 @@ export async function registerRoutes(_server: Server, app: Express) {
 
   // Subjects
   app.get(api.subjects.list.path, isAuthenticated, async (req, res) => {
-    const teacherId = getTeacherId(req);
+    const teacherId = await getSchoolOwnerId(req);
     const subjectsList = await storage.listSubjects(teacherId);
     res.json(subjectsList);
   });
 
   app.post(api.subjects.create.path, isAuthenticated, async (req, res) => {
     try {
-      const teacherId = getTeacherId(req);
+      const teacherId = await getSchoolOwnerId(req);
       const body = api.subjects.create.input.parse(req.body);
       const created = await storage.createSubject(teacherId, body);
       res.status(201).json(created);
@@ -310,7 +318,7 @@ export async function registerRoutes(_server: Server, app: Express) {
 
   // Subject Lessons scoped to a class
   app.get("/api/classes/:classId/subjects/:subjectId/lessons", isAuthenticated, async (req: any, res) => {
-    const teacherId = getTeacherId(req);
+    const teacherId = await getSchoolOwnerId(req);
     const subjectId = Number(req.params.subjectId);
     const classId = Number(req.params.classId);
     const result = await storage.listLessonsBySubject(teacherId, subjectId, classId);
@@ -319,7 +327,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   });
 
   app.post("/api/classes/:classId/subjects/:subjectId/lessons", isAuthenticated, async (req: any, res) => {
-    const teacherId = getTeacherId(req);
+    const teacherId = await getSchoolOwnerId(req);
     const subjectId = Number(req.params.subjectId);
     const classId = Number(req.params.classId);
     const title = String(req.body?.title || "").trim();
@@ -332,7 +340,7 @@ export async function registerRoutes(_server: Server, app: Express) {
 
   // Class Curriculum (JSON for UI)
   app.get("/api/classes/:classId/curriculum", isAuthenticated, async (req: any, res) => {
-    const teacherId = getTeacherId(req);
+    const teacherId = await getSchoolOwnerId(req);
     const classId = Number(req.params.classId);
     const curriculum = await storage.getClassCurriculum(teacherId, classId);
     if (!curriculum) return res.status(404).json({ message: "Class not found" });
@@ -341,7 +349,7 @@ export async function registerRoutes(_server: Server, app: Express) {
 
   // Class Curriculum PDF
   app.post("/api/classes/:classId/curriculum-pdf", isAuthenticated, async (req: any, res) => {
-    const teacherId = getTeacherId(req);
+    const teacherId = await getSchoolOwnerId(req);
     const classId = Number(req.params.classId);
 
     const curriculum = await storage.getClassCurriculum(teacherId, classId);
@@ -496,7 +504,7 @@ export async function registerRoutes(_server: Server, app: Express) {
 
   // Class Subjects
   app.get(api.classSubjects.list.path, isAuthenticated, async (req, res) => {
-    const teacherId = getTeacherId(req);
+    const teacherId = await getSchoolOwnerId(req);
     const classId = Number(req.params.classId);
     const list = await storage.listClassSubjects(teacherId, classId);
     if (list === undefined) return res.status(404).json({ message: "Class not found" });
@@ -505,7 +513,7 @@ export async function registerRoutes(_server: Server, app: Express) {
 
   app.post(api.classSubjects.assign.path, isAuthenticated, async (req, res) => {
     try {
-      const teacherId = getTeacherId(req);
+      const teacherId = await getSchoolOwnerId(req);
       const classId = Number(req.params.classId);
       const body = api.classSubjects.assign.input.parse(req.body);
       const created = await storage.assignSubjectToClass(teacherId, classId, body);
@@ -519,7 +527,7 @@ export async function registerRoutes(_server: Server, app: Express) {
 
   // Mastery
   app.get(api.mastery.student.path, isAuthenticated, async (req: any, res) => {
-    const teacherId = getTeacherId(req);
+    const teacherId = await getSchoolOwnerId(req);
     const id = Number(req.params.id);
     const masteryData = await storage.getStudentMastery(teacherId, id);
     if (!masteryData) return res.status(404).json({ message: "Student not found" });
@@ -527,7 +535,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   });
 
   app.get(api.mastery.class.path, isAuthenticated, async (req: any, res) => {
-    const teacherId = getTeacherId(req);
+    const teacherId = await getSchoolOwnerId(req);
     const id = Number(req.params.id);
     const masteryData = await storage.getClassMastery(teacherId, id);
     if (!masteryData) return res.status(404).json({ message: "Class not found" });
@@ -595,7 +603,7 @@ export async function registerRoutes(_server: Server, app: Express) {
 
   // Reports: generate PDF and return a URL
   app.post(api.reports.generateStudent.path, isAuthenticated, async (req: any, res) => {
-    const teacherId = getTeacherId(req);
+    const teacherId = await getSchoolOwnerId(req);
     const id = Number(req.params.id);
 
     const masteryData = await storage.getStudentMastery(teacherId, id);
@@ -768,7 +776,7 @@ export async function registerRoutes(_server: Server, app: Express) {
   });
 
   app.post(api.reports.generateClass.path, isAuthenticated, async (req: any, res) => {
-    const teacherId = getTeacherId(req);
+    const teacherId = await getSchoolOwnerId(req);
     const id = Number(req.params.id);
 
     const masteryData = await storage.getClassMastery(teacherId, id);
@@ -949,7 +957,7 @@ export async function registerRoutes(_server: Server, app: Express) {
 
   // Curriculum PDF: all lessons & outcomes for an academic year
   app.post("/api/academic-years/:id/curriculum-pdf", isAuthenticated, async (req: any, res) => {
-    const teacherId = getTeacherId(req);
+    const teacherId = await getSchoolOwnerId(req);
     const yearId = Number(req.params.id);
 
     const curriculum = await storage.getAcademicYearCurriculum(teacherId, yearId);

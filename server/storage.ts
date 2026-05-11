@@ -650,11 +650,30 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(classes.id, classId), eq(classes.teacherId, teacherId)));
     if (!cls) return undefined;
 
-    return await db
-      .select()
+    const rows = await db
+      .select({
+        id: assessments.id,
+        classId: assessments.classId,
+        title: assessments.title,
+        type: assessments.type,
+        lessonId: assessments.lessonId,
+        outcomeId: assessments.outcomeId,
+        totalScore: assessments.totalScore,
+        date: assessments.date,
+        createdAt: assessments.createdAt,
+        subjectId: lessons.subjectId,
+        lessonWeekId: lessons.weekId,
+        termId: weeks.termId,
+        academicYearId: terms.academicYearId,
+      })
       .from(assessments)
+      .leftJoin(lessons, eq(lessons.id, assessments.lessonId))
+      .leftJoin(weeks, eq(weeks.id, lessons.weekId))
+      .leftJoin(terms, eq(terms.id, weeks.termId))
       .where(eq(assessments.classId, classId))
       .orderBy(desc(assessments.date));
+
+    return rows.map(({ lessonWeekId, termId, ...rest }) => rest);
   }
 
   async createAssessment(

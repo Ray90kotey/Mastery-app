@@ -38,7 +38,7 @@ const ALL_NAV: NavItem[] = [
   { href: "/app/subjects", label: "Subjects", icon: BookOpen, testId: "nav-subjects", roles: ["admin", "teacher"] },
   { href: "/app/academic", label: "Academic Setup", icon: BookOpen, testId: "nav-academic", roles: ["admin", "teacher"] },
   { href: "/app/assessments", label: "Assessments", icon: ClipboardList, testId: "nav-assessments", roles: ["admin", "teacher"] },
-  { href: "/app/reports", label: "Reports", icon: FileText, testId: "nav-reports", roles: ["admin", "teacher"] },
+  { href: "/app/reports", label: "Reports", icon: FileText, testId: "nav-reports", roles: ["admin", "teacher", "school_head"] },
   { href: "/app/admin", label: "School Admin", icon: School, testId: "nav-admin", roles: ["admin", "school_head"] },
   { href: "/app/settings", label: "Settings", icon: Settings, testId: "nav-settings", roles: ["admin", "teacher"] },
 ];

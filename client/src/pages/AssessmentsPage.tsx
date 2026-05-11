@@ -79,12 +79,10 @@ export default function AssessmentsPage() {
   const filteredAssessments = useMemo(() => {
     let list = assessmentsQ.data ?? [];
     if (filterSubjectId !== "all") {
-      // @ts-ignore - subjectId exists in schema
-      list = list.filter(a => (a as any).subjectId === Number(filterSubjectId));
+      list = list.filter(a => a.subjectId === Number(filterSubjectId));
     }
     if (filterYearId !== "all") {
-      // @ts-ignore
-      list = list.filter(a => (a as any).academicYearId === Number(filterYearId));
+      list = list.filter(a => a.academicYearId === Number(filterYearId));
     }
     return list;
   }, [assessmentsQ.data, filterSubjectId, filterYearId]);
@@ -241,15 +239,22 @@ export default function AssessmentsPage() {
                     const active = a.id === selectedAssessmentId;
                     const date = a.date ? new Date(a.date as any) : null;
                     return (
-                      <button
+                      <div
                         key={a.id}
-                        type="button"
+                        role="button"
+                        tabIndex={0}
                         onClick={() => {
                           setSelectedAssessmentId(a.id);
                           setScoreDrafts({});
                         }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            setSelectedAssessmentId(a.id);
+                            setScoreDrafts({});
+                          }
+                        }}
                         className={[
-                          "w-full text-left rounded-2xl border px-4 py-3 transition-all duration-200 hover:bg-muted/50 hover:shadow-sm",
+                          "w-full text-left rounded-2xl border px-4 py-3 transition-all duration-200 hover:bg-muted/50 hover:shadow-sm cursor-pointer",
                           active ? "bg-secondary border-border shadow-sm" : "bg-card/60 border-border/70",
                         ].join(" ")}
                         data-testid={`assessment-item-${a.id}`}
@@ -339,7 +344,7 @@ export default function AssessmentsPage() {
                             </AlertDialog>
                           </div>
                         </div>
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
