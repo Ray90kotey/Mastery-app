@@ -1,6 +1,6 @@
 import { useState } from "react";
 import AppShell from "@/components/AppShell";
-import { useMySchool, useSchoolMembers, useSchoolInvitations, useCreateInvitation, useDeleteInvitation, useRemoveMember, useSchoolOverview } from "@/hooks/use-school";
+import { useMySchool, useSchoolMembers, useSchoolInvitations, useCreateInvitation, useDeleteInvitation, useRemoveMember, useSchoolOverview, useClassesMastery } from "@/hooks/use-school";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { Copy, Link2, Plus, Trash2, UserMinus, Users, School, BarChart3, CheckCircle } from "lucide-react";
+import { ArrowUpDown, Copy, Link2, Plus, Trash2, UserMinus, Users, School, BarChart3, CheckCircle } from "lucide-react";
 import { useLocation } from "wouter";
 import type { SchoolRole } from "@shared/schema";
 
@@ -41,9 +41,13 @@ export default function AdminPage() {
   const isAdminRole = mySchool?.role === "admin";
   const isHeadRole = mySchool?.role === "school_head";
 
+  const [sortCol, setSortCol] = useState<"className" | "studentCount" | "avgScore">("avgScore");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
   const { data: members, isLoading: membersLoading } = useSchoolMembers(!schoolLoading && (isAdminRole || isHeadRole));
   const { data: invitations, isLoading: invLoading } = useSchoolInvitations(!schoolLoading && isAdminRole);
   const { data: overview } = useSchoolOverview(!schoolLoading && (isAdminRole || isHeadRole));
+  const { data: classesMastery, isLoading: masteryLoading } = useClassesMastery(!schoolLoading && (isAdminRole || isHeadRole));
 
   const createInv = useCreateInvitation();
   const deleteInv = useDeleteInvitation();
@@ -278,23 +282,128 @@ export default function AdminPage() {
           </section>
         )}
 
-        {/* Class Breakdown (overview) */}
-        {overview?.classBreakdown?.length > 0 && (
-          <section>
-            <h2 className="text-base font-semibold mb-3 flex items-center gap-2">
+        {/* T3: Class Comparison Table */}
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-base font-semibold flex items-center gap-2">
               <BarChart3 className="h-4 w-4 text-primary" />
-              Classes
+              Class Comparison
             </h2>
-            <div className="divide-y divide-border/60 rounded-xl border border-border/70 overflow-hidden bg-card">
-              {overview.classBreakdown.map((cls: any) => (
-                <div key={cls.classId} className="flex items-center justify-between p-4" data-testid={`row-class-${cls.classId}`}>
-                  <p className="text-sm font-medium">{cls.className}</p>
-                  <Badge variant="secondary">{cls.studentCount} student{cls.studentCount !== 1 ? "s" : ""}</Badge>
-                </div>
-              ))}
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <ArrowUpDown className="h-3 w-3" />
+              Click column headers to sort
             </div>
-          </section>
-        )}
+          </div>
+
+          {masteryLoading ? (
+            <Skeleton className="h-40 w-full rounded-xl" />
+          ) : !classesMastery || classesMastery.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center border border-border/70 rounded-xl bg-card">
+              No classes found. Teachers need to create classes first.
+            </p>
+          ) : (() => {
+            const sorted = [...classesMastery].sort((a, b) => {
+              const va = a[sortCol] ?? 0;
+              const vb = b[sortCol] ?? 0;
+              if (typeof va === "string") return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
+              return sortDir === "asc" ? va - vb : vb - va;
+            });
+            const toggleSort = (col: typeof sortCol) => {
+              if (sortCol === col) setSortDir((d) => d === "asc" ? "desc" : "asc");
+              else { setSortCol(col); setSortDir("desc"); }
+            };
+            const bandColors: Record<string, string> = {
+              Mastered: "bg-emerald-500",
+              Proficient: "bg-blue-500",
+              Developing: "bg-amber-400",
+              "Needs Support": "bg-rose-500",
+              "No Data": "bg-muted",
+            };
+            return (
+              <div className="rounded-xl border border-border/70 overflow-hidden bg-card">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border/60 bg-muted/30">
+                      <th
+                        className="text-left px-4 py-3 font-semibold text-xs cursor-pointer hover:text-primary select-none"
+                        onClick={() => toggleSort("className")}
+                        data-testid="sort-classname"
+                      >
+                        Class {sortCol === "className" ? (sortDir === "asc" ? "↑" : "↓") : ""}
+                      </th>
+                      <th
+                        className="text-center px-3 py-3 font-semibold text-xs cursor-pointer hover:text-primary select-none"
+                        onClick={() => toggleSort("studentCount")}
+                        data-testid="sort-students"
+                      >
+                        Students {sortCol === "studentCount" ? (sortDir === "asc" ? "↑" : "↓") : ""}
+                      </th>
+                      <th
+                        className="text-center px-3 py-3 font-semibold text-xs cursor-pointer hover:text-primary select-none"
+                        onClick={() => toggleSort("avgScore")}
+                        data-testid="sort-avgscore"
+                      >
+                        Avg Score {sortCol === "avgScore" ? (sortDir === "asc" ? "↑" : "↓") : ""}
+                      </th>
+                      <th className="px-4 py-3 font-semibold text-xs text-left">Band Distribution</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/40">
+                    {sorted.map((cls) => {
+                      const total = cls.studentCount || 1;
+                      const avgPct = cls.avgScore;
+                      const bandColor =
+                        avgPct >= 85 ? "text-emerald-700 bg-emerald-50 border-emerald-200"
+                        : avgPct >= 70 ? "text-blue-700 bg-blue-50 border-blue-200"
+                        : avgPct >= 50 ? "text-amber-700 bg-amber-50 border-amber-200"
+                        : cls.assessmentCount === 0 ? "text-muted-foreground bg-muted border-border"
+                        : "text-rose-700 bg-rose-50 border-rose-200";
+                      return (
+                        <tr key={cls.classId} className="hover:bg-muted/20 transition-colors" data-testid={`row-class-mastery-${cls.classId}`}>
+                          <td className="px-4 py-3 font-medium">{cls.className}</td>
+                          <td className="px-3 py-3 text-center text-muted-foreground">{cls.studentCount}</td>
+                          <td className="px-3 py-3 text-center">
+                            {cls.assessmentCount === 0 ? (
+                              <span className="text-xs text-muted-foreground">No data</span>
+                            ) : (
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border ${bandColor}`}>
+                                {avgPct}%
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="h-2.5 rounded-full overflow-hidden flex w-full min-w-[80px] bg-muted">
+                              {(["Mastered","Proficient","Developing","Needs Support","No Data"] as const).map((band) => {
+                                const count = cls.bands[band] ?? 0;
+                                const pct = (count / total) * 100;
+                                if (pct === 0) return null;
+                                return (
+                                  <div
+                                    key={band}
+                                    className={`${bandColors[band]} transition-all`}
+                                    style={{ width: `${pct}%` }}
+                                    title={`${band}: ${count} student${count !== 1 ? "s" : ""}`}
+                                  />
+                                );
+                              })}
+                            </div>
+                            <div className="flex flex-wrap gap-x-2 mt-1">
+                              {(["Mastered","Proficient","Developing","Needs Support"] as const).map((band) => {
+                                const count = cls.bands[band] ?? 0;
+                                if (count === 0) return null;
+                                return <span key={band} className="text-[10px] text-muted-foreground">{band.split(" ")[0]} {count}</span>;
+                              })}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })()}
+        </section>
       </div>
 
       {/* Invite Dialog */}

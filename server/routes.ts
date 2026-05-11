@@ -1200,6 +1200,22 @@ export async function registerRoutes(_server: Server, app: Express) {
     res.json(overview);
   });
 
+  app.get("/api/classes/:id/mastery-summary", isAuthenticated, async (req: any, res) => {
+    const teacherId = await getSchoolOwnerId(req);
+    const classId = Number(req.params.id);
+    const data = await storage.getClassMasterySummary(teacherId, classId);
+    if (!data) return res.status(404).json({ message: "Class not found" });
+    res.json(data);
+  });
+
+  app.get("/api/school/classes-mastery", isAuthenticated, async (req: any, res) => {
+    const ctx = await requireAdminOrHead(req, res);
+    if (!ctx) return;
+    const teacherId = await getSchoolOwnerId(req);
+    const data = await storage.getAllClassesMastery(teacherId);
+    res.json(data);
+  });
+
   // ─── Invitation acceptance (public preview, auth required to accept) ─────────
 
   // Preview invitation (no auth required — shows school name/role before login)

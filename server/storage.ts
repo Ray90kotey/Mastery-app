@@ -195,6 +195,10 @@ export interface IStorage {
     classId: number,
   ): Promise<any | undefined>;
 
+  // Class mastery overview
+  getClassMasterySummary(teacherId: string, classId: number): Promise<any | null>;
+  getAllClassesMastery(teacherId: string): Promise<any[]>;
+
   // School (multi-user)
   getMySchool(userId: string): Promise<MySchoolResponse | null>;
   createSchool(userId: string, name: string): Promise<MySchoolResponse>;
@@ -1215,6 +1219,108 @@ export class DatabaseStorage implements IStorage {
 
     const [school] = await db.select().from(schools).where(eq(schools.id, inv.schoolId)).limit(1);
     return { school: school!, role: member.role as SchoolRole, memberId: member.id, linkedStudentId: member.linkedStudentId ?? null };
+  }
+
+  async getClassMasterySummary(teacherId: string, classId: number): Promise<any | null> {
+    const [cls] = await db.select().from(classes).where(and(eq(classes.id, classId), eq(classes.teacherId, teacherId)));
+    if (!cls) return null;
+
+    const studentList = await db.select().from(students).where(eq(students.classId, classId));
+    const assessmentList = await db.select().from(assessments).where(eq(assessments.classId, classId));
+
+    const bands: Record<string, number> = { Mastered: 0, Proficient: 0, Developing: 0, "Needs Support": 0, "No Data": 0 };
+    let totalPct = 0;
+    let countWithScores = 0;
+
+    if (assessmentList.length > 0 && studentList.length > 0) {
+      const assessmentIds = assessmentList.map((a) => a.id);
+      const allScores = await db.select().from(studentScores).where(inArray(studentScores.assessmentId, assessmentIds));
+
+      for (const student of studentList) {
+        const sScores = allScores.filter((s) => s.studentId === student.id);
+        if (sScores.length === 0) { bands["No Data"]++; continue; }
+        let rawSum = 0, rawTotal = 0;
+        for (const sc of sScores) {
+          const assessment = assessmentList.find((a) => a.id === sc.assessmentId);
+          if (!assessment) continue;
+          rawSum += sc.score;
+          rawTotal += assessment.totalScore;
+        }
+        const pct = rawTotal > 0 ? (rawSum / rawTotal) * 100 : 0;
+        totalPct += pct;
+        countWithScores++;
+        if (pct >= 85) bands.Mastered++;
+        else if (pct >= 70) bands.Proficient++;
+        else if (pct >= 50) bands.Developing++;
+        else bands["Needs Support"]++;
+      }
+    } else {
+      studentList.forEach(() => bands["No Data"]++);
+    }
+
+    return {
+      classId: cls.id,
+      className: cls.name,
+      studentCount: studentList.length,
+      assessmentCount: assessmentList.length,
+      avgScore: countWithScores > 0 ? Math.round(totalPct / countWithScores) : 0,
+      bands,
+    };
+  }
+
+  async getAllClassesMastery(teacherId: string): Promise<any[]> {
+    const allClasses = await db.select().from(classes).where(eq(classes.teacherId, teacherId));
+    if (allClasses.length === 0) return [];
+
+    const results: any[] = [];
+
+    for (const cls of allClasses) {
+      const studentList = await db.select().from(students).where(eq(students.classId, cls.id));
+      const assessmentList = await db.select().from(assessments).where(eq(assessments.classId, cls.id));
+
+      const bands: Record<string, number> = { Mastered: 0, Proficient: 0, Developing: 0, "Needs Support": 0, "No Data": 0 };
+      let totalPct = 0;
+      let countWithScores = 0;
+
+      if (assessmentList.length > 0 && studentList.length > 0) {
+        const assessmentIds = assessmentList.map((a) => a.id);
+        const allScores = await db.select().from(studentScores).where(inArray(studentScores.assessmentId, assessmentIds));
+
+        for (const student of studentList) {
+          const sScores = allScores.filter((s) => s.studentId === student.id);
+          if (sScores.length === 0) { bands["No Data"]++; continue; }
+
+          let rawSum = 0;
+          let rawTotal = 0;
+          for (const sc of sScores) {
+            const assessment = assessmentList.find((a) => a.id === sc.assessmentId);
+            if (!assessment) continue;
+            rawSum += sc.score;
+            rawTotal += assessment.totalScore;
+          }
+          const pct = rawTotal > 0 ? (rawSum / rawTotal) * 100 : 0;
+          totalPct += pct;
+          countWithScores++;
+          if (pct >= 85) bands.Mastered++;
+          else if (pct >= 70) bands.Proficient++;
+          else if (pct >= 50) bands.Developing++;
+          else bands["Needs Support"]++;
+        }
+      } else {
+        studentList.forEach(() => bands["No Data"]++);
+      }
+
+      results.push({
+        classId: cls.id,
+        className: cls.name,
+        studentCount: studentList.length,
+        assessmentCount: assessmentList.length,
+        avgScore: countWithScores > 0 ? Math.round(totalPct / countWithScores) : 0,
+        bands,
+      });
+    }
+
+    return results;
   }
 
   async getSchoolOverview(schoolId: number): Promise<any> {

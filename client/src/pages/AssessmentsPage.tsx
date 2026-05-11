@@ -1,10 +1,10 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Meta from "@/components/Meta";
 import AppShell from "@/components/AppShell";
 import EmptyState from "@/components/EmptyState";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError, redirectToLogin } from "@/lib/auth-utils";
-import { useClasses } from "@/hooks/use-classes";
+import { useClasses, useClassMasterySummary } from "@/hooks/use-classes";
 import { useStudentsByClass } from "@/hooks/use-students";
 import { useAssessmentsByClass, useCreateAssessment, useDeleteAssessment, useUpdateAssessment } from "@/hooks/use-assessments";
 import { useUpsertScores } from "@/hooks/use-scores";
@@ -21,7 +21,22 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { ClipboardList, Plus, Save, Trash2, Filter } from "lucide-react";
+import { ClipboardList, Plus, Save, Trash2, Filter, BookTemplate, Eraser, ChevronDown } from "lucide-react";
+
+type AssessmentTemplate = { id: string; title: string; type: string; totalScore: number };
+const TEMPLATE_KEY = "mastery_assessment_templates";
+function loadTemplates(): AssessmentTemplate[] {
+  try { return JSON.parse(localStorage.getItem(TEMPLATE_KEY) ?? "[]"); } catch { return []; }
+}
+function persistTemplates(all: AssessmentTemplate[]) { localStorage.setItem(TEMPLATE_KEY, JSON.stringify(all)); }
+
+const BAND_META: Record<string, { color: string; bg: string }> = {
+  Mastered:      { color: "text-emerald-700", bg: "bg-emerald-500" },
+  Proficient:    { color: "text-blue-700",    bg: "bg-blue-500"    },
+  Developing:    { color: "text-amber-700",   bg: "bg-amber-400"   },
+  "Needs Support":{ color: "text-rose-700",   bg: "bg-rose-500"    },
+  "No Data":     { color: "text-muted-foreground", bg: "bg-muted"  },
+};
 
 const ASSESSMENT_TYPES = ["Classwork", "Quiz", "Test", "Project"] as const;
 
@@ -75,6 +90,11 @@ export default function AssessmentsPage() {
   );
 
   const [scoreDrafts, setScoreDrafts] = useState<Record<number, string>>({});
+  const scoreInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const [templates, setTemplates] = useState<AssessmentTemplate[]>(() => loadTemplates());
+  const [loadTplId, setLoadTplId] = useState<string>("");
+
+  const classMasteryQ = useClassMasterySummary(classId ?? undefined);
 
   const filteredAssessments = useMemo(() => {
     let list = assessmentsQ.data ?? [];
@@ -187,6 +207,42 @@ export default function AssessmentsPage() {
       </div>
 
       <Separator className="my-6" />
+
+      {/* T4: Class Mastery Summary Bar */}
+      {classId && classMasteryQ.data && classMasteryQ.data.studentCount > 0 && (
+        <div className="rounded-2xl border border-border/70 bg-card/70 p-4 mb-5 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <div>
+              <p className="text-xs text-muted-foreground">Class Mastery Snapshot</p>
+              <p className="text-sm font-semibold">
+                {classMasteryQ.data.studentCount} students · {classMasteryQ.data.assessmentCount} assessments · Avg {classMasteryQ.data.avgScore}%
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {(["Mastered","Proficient","Developing","Needs Support","No Data"] as const).map((band) => {
+                const count = classMasteryQ.data!.bands[band] ?? 0;
+                if (count === 0) return null;
+                const meta = BAND_META[band];
+                return (
+                  <span key={band} className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${meta.color} border-current/20 bg-current/5`}>
+                    <span className={`w-2 h-2 rounded-full ${meta.bg}`} />
+                    {band} · {count}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+          {/* Band distribution bar */}
+          <div className="h-3 rounded-full overflow-hidden flex w-full" data-testid="class-mastery-bar">
+            {(["Mastered","Proficient","Developing","Needs Support","No Data"] as const).map((band) => {
+              const count = classMasteryQ.data!.bands[band] ?? 0;
+              const pct = classMasteryQ.data!.studentCount > 0 ? (count / classMasteryQ.data!.studentCount) * 100 : 0;
+              if (pct === 0) return null;
+              return <div key={band} className={`${BAND_META[band].bg} transition-all`} style={{ width: `${pct}%` }} title={`${band}: ${count}`} />;
+            })}
+          </div>
+        </div>
+      )}
 
       {!classId ? (
         <EmptyState
@@ -404,36 +460,63 @@ export default function AssessmentsPage() {
               />
             ) : (
               <div className="space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <div className="text-xs text-muted-foreground" data-testid="scores-stats">
-                    {studentsQ.data!.length} students • Draft changes:{" "}
-                    {Object.keys(scoreDrafts).length}
+                <div className="flex flex-col gap-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="text-xs text-muted-foreground" data-testid="scores-stats">
+                      {studentsQ.data!.length} students &bull; {Object.keys(scoreDrafts).length} of {studentsQ.data!.length} entered
+                    </div>
+                    <Button
+                      onClick={async () => {
+                        try {
+                          const scores = Object.entries(scoreDrafts).map(([studentId, score]) => ({
+                            studentId: Number(studentId),
+                            score: Number(score),
+                          }));
+                          await upsertScores.mutateAsync({
+                            assessmentId: selectedAssessment.id,
+                            scores,
+                          });
+                          setScoreDrafts({});
+                          toast({ title: "Scores saved" });
+                        } catch (e: any) {
+                          if (isUnauthorizedError(e)) return redirectToLogin(toast as any);
+                          toast({ title: "Could not save scores", description: e?.message ?? "Try again", variant: "destructive" });
+                        }
+                      }}
+                      disabled={upsertScores.isPending || Object.keys(scoreDrafts).length === 0}
+                      data-testid="scores-save"
+                      className="rounded-xl shadow-sm hover:shadow-md transition-all"
+                    >
+                      <Save className="h-4.5 w-4.5 mr-2" />
+                      {upsertScores.isPending ? "Saving..." : "Save scores"}
+                    </Button>
                   </div>
-                  <Button
-                    onClick={async () => {
-                      try {
-                        const scores = Object.entries(scoreDrafts).map(([studentId, score]) => ({
-                          studentId: Number(studentId),
-                          score: Number(score),
-                        }));
-                        await upsertScores.mutateAsync({
-                          assessmentId: selectedAssessment.id,
-                          scores,
-                        });
-                        setScoreDrafts({});
-                        toast({ title: "Scores saved" });
-                      } catch (e: any) {
-                        if (isUnauthorizedError(e)) return redirectToLogin(toast as any);
-                        toast({ title: "Could not save scores", description: e?.message ?? "Try again", variant: "destructive" });
-                      }
-                    }}
-                    disabled={upsertScores.isPending || Object.keys(scoreDrafts).length === 0}
-                    data-testid="scores-save"
-                    className="rounded-xl shadow-sm hover:shadow-md transition-all"
-                  >
-                    <Save className="h-4.5 w-4.5 mr-2" />
-                    {upsertScores.isPending ? "Saving..." : "Save scores"}
-                  </Button>
+                  {/* T1: Quick-fill actions */}
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="rounded-xl text-xs h-8 px-3"
+                      data-testid="scores-fill-max"
+                      onClick={() => {
+                        const drafts: Record<number, string> = {};
+                        studentsQ.data!.forEach((s) => { drafts[s.id] = String(selectedAssessment.totalScore); });
+                        setScoreDrafts(drafts);
+                      }}
+                    >
+                      Fill max ({selectedAssessment.totalScore})
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="rounded-xl text-xs h-8 px-3 text-muted-foreground"
+                      data-testid="scores-clear-all"
+                      onClick={() => setScoreDrafts({})}
+                    >
+                      <Eraser className="h-3 w-3 mr-1" />
+                      Clear
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="rounded-2xl border border-border/70 overflow-hidden bg-card/50" data-testid="scores-table">
@@ -445,7 +528,7 @@ export default function AssessmentsPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {studentsQ.data!.map((s) => {
+                      {studentsQ.data!.map((s, idx) => {
                         const draft = scoreDrafts[s.id] ?? "";
                         return (
                           <TableRow key={s.id} data-testid={`score-row-${s.id}`}>
@@ -460,6 +543,16 @@ export default function AssessmentsPage() {
                                 type="number"
                                 inputMode="numeric"
                                 value={draft}
+                                ref={(el) => { scoreInputRefs.current[idx] = el; }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" || e.key === "ArrowDown") {
+                                    e.preventDefault();
+                                    scoreInputRefs.current[idx + 1]?.focus();
+                                  } else if (e.key === "ArrowUp") {
+                                    e.preventDefault();
+                                    scoreInputRefs.current[idx - 1]?.focus();
+                                  }
+                                }}
                                 onChange={(e) => {
                                   setScoreDrafts((prev) => ({
                                     ...prev,
@@ -497,6 +590,50 @@ export default function AssessmentsPage() {
           <DialogHeader>
             <DialogTitle>{editingAssessment ? "Edit assessment" : "New assessment"}</DialogTitle>
           </DialogHeader>
+
+          {/* T2: Template picker */}
+          {templates.length > 0 && !editingAssessment && (
+            <div className="flex items-center gap-2 mb-2 p-3 rounded-xl bg-muted/40 border border-border/60">
+              <BookTemplate className="h-4 w-4 text-muted-foreground shrink-0" />
+              <select
+                className="flex-1 text-sm bg-transparent outline-none text-foreground"
+                value={loadTplId}
+                data-testid="template-select"
+                onChange={(e) => {
+                  const id = e.target.value;
+                  if (!id) return;
+                  const tpl = templates.find((t) => t.id === id);
+                  if (tpl) {
+                    setAssessmentForm((p) => ({ ...p, title: tpl.title, type: tpl.type as any, totalScore: tpl.totalScore }));
+                  }
+                  setLoadTplId("");
+                }}
+              >
+                <option value="">Load from template…</option>
+                {templates.map((t) => (
+                  <option key={t.id} value={t.id}>{t.title} ({t.type}, {t.totalScore} pts)</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="text-xs text-muted-foreground hover:text-destructive ml-1"
+                title="Manage templates"
+                onClick={() => {
+                  const names = templates.map((t, i) => `${i + 1}. ${t.title}`).join("\n");
+                  const del = window.prompt(`Templates (enter number to delete):\n${names}`);
+                  const idx = del ? parseInt(del) - 1 : -1;
+                  if (idx >= 0 && idx < templates.length) {
+                    const updated = templates.filter((_, i) => i !== idx);
+                    persistTemplates(updated);
+                    setTemplates(updated);
+                    toast({ title: "Template deleted" });
+                  }
+                }}
+              >
+                Manage
+              </button>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2 space-y-2">
@@ -654,7 +791,31 @@ export default function AssessmentsPage() {
             </div>
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-2">
+          <DialogFooter className="gap-2 sm:gap-2 flex-wrap">
+            {!editingAssessment && (
+              <Button
+                variant="outline"
+                type="button"
+                className="rounded-xl text-xs mr-auto"
+                data-testid="assessment-save-template"
+                onClick={() => {
+                  if (!assessmentForm.title.trim()) { toast({ title: "Add a title first" }); return; }
+                  const newTpl: AssessmentTemplate = {
+                    id: Date.now().toString(),
+                    title: assessmentForm.title.trim(),
+                    type: assessmentForm.type,
+                    totalScore: assessmentForm.totalScore,
+                  };
+                  const updated = [...templates, newTpl];
+                  persistTemplates(updated);
+                  setTemplates(updated);
+                  toast({ title: "Template saved", description: `"${newTpl.title}" saved for future use.` });
+                }}
+              >
+                <BookTemplate className="h-3.5 w-3.5 mr-1.5" />
+                Save as template
+              </Button>
+            )}
             <Button
               variant="secondary"
               onClick={() => setAssessmentOpen(false)}

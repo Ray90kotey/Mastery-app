@@ -93,6 +93,19 @@ export function useUpdateClass() {
   });
 }
 
+export function useClassMasterySummary(classId?: number) {
+  return useQuery<any>({
+    queryKey: ["/api/classes", classId, "mastery-summary"],
+    queryFn: async () => {
+      const res = await fetch(`/api/classes/${classId}/mastery-summary`, { credentials: "include" });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
+    enabled: !!classId,
+    staleTime: 1000 * 60 * 2,
+  });
+}
+
 export function useDeleteClass() {
   const qc = useQueryClient();
   return useMutation({

@@ -129,6 +129,19 @@ export function useRemoveMember() {
   });
 }
 
+export function useClassesMastery(enabled = true) {
+  return useQuery<any[]>({
+    queryKey: ["/api/school/classes-mastery"],
+    queryFn: async () => {
+      const res = await fetch("/api/school/classes-mastery", { credentials: "include" });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
+    enabled,
+    staleTime: 1000 * 60 * 2,
+  });
+}
+
 export function useAcceptInvitation() {
   const qc = useQueryClient();
   return useMutation({
