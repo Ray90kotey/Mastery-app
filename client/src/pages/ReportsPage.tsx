@@ -16,6 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Download, FileText, Users, GraduationCap, MessageCircle } from "lucide-react";
+import GlossyButton from "@/components/GlossyButton";
 
 export default function ReportsPage() {
   const { toast } = useToast();
@@ -215,8 +216,8 @@ export default function ReportsPage() {
                   </Select>
                 </div>
 
-                <Button
-                  className="w-full rounded-2xl h-12"
+                <GlossyButton
+                  fullWidth
                   disabled={!classId || classReportM.isPending}
                   onClick={async () => {
                     if (!classId) return;
@@ -232,8 +233,9 @@ export default function ReportsPage() {
                   }}
                   data-testid="reports-generate-class-btn"
                 >
+                  <FileText className="h-4 w-4" />
                   {classReportM.isPending ? "Generating..." : "Generate Class Report"}
-                </Button>
+                </GlossyButton>
               </div>
             </TabsContent>
           </Tabs>
@@ -275,15 +277,13 @@ export default function ReportsPage() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <Button
-                  variant="secondary"
+                <GlossyButton
                   onClick={() => window.open(lastReport.url, "_blank", "noopener,noreferrer")}
                   data-testid="reports-download"
-                  className="rounded-xl"
                 >
-                  <Download className="h-4.5 w-4.5 mr-2" />
+                  <Download className="h-4 w-4" />
                   Download
-                </Button>
+                </GlossyButton>
 
                 <WhatsAppShareButton
                   message={waMessage}

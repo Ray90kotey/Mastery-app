@@ -22,6 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { ClipboardList, Plus, Save, Trash2, Filter, BookTemplate, Eraser, ChevronDown } from "lucide-react";
+import GlossyButton from "@/components/GlossyButton";
 
 type AssessmentTemplate = { id: string; title: string; type: string; totalScore: number };
 const TEMPLATE_KEY = "mastery_assessment_templates";
@@ -465,7 +466,7 @@ export default function AssessmentsPage() {
                     <div className="text-xs text-muted-foreground" data-testid="scores-stats">
                       {studentsQ.data!.length} students &bull; {Object.keys(scoreDrafts).length} of {studentsQ.data!.length} entered
                     </div>
-                    <Button
+                    <GlossyButton
                       onClick={async () => {
                         try {
                           const scores = Object.entries(scoreDrafts).map(([studentId, score]) => ({
@@ -485,11 +486,10 @@ export default function AssessmentsPage() {
                       }}
                       disabled={upsertScores.isPending || Object.keys(scoreDrafts).length === 0}
                       data-testid="scores-save"
-                      className="rounded-xl shadow-sm hover:shadow-md transition-all"
                     >
-                      <Save className="h-4.5 w-4.5 mr-2" />
+                      <Save className="h-4 w-4" />
                       {upsertScores.isPending ? "Saving..." : "Save scores"}
-                    </Button>
+                    </GlossyButton>
                   </div>
                   {/* T1: Quick-fill actions */}
                   <div className="flex gap-2">
