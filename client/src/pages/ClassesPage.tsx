@@ -610,110 +610,75 @@ export default function ClassesPage() {
               className="bg-card/50"
             />
           ) : (
-            <div className="rounded-2xl border border-border/70 overflow-hidden bg-card/50" data-testid="students-table">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Student</TableHead>
-                    <TableHead className="hidden md:table-cell">Parent</TableHead>
-                    <TableHead className="hidden lg:table-cell">Email</TableHead>
-                    <TableHead className="hidden lg:table-cell">Phone</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {studentsQ.data!.map((s) => (
-                    <TableRow key={s.id} data-testid={`student-row-${s.id}`}>
-                      <TableCell className="font-semibold">
-                        <div className="flex items-center gap-3">
-                          {s.image ? (
-                            <img src={s.image} alt={s.fullName} className="h-8 w-8 rounded-full object-cover border border-border" />
-                          ) : (
-                            <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold">
-                              {s.fullName.substring(0, 2).toUpperCase()}
-                            </div>
-                          )}
-                          <span>{s.fullName}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell text-muted-foreground">
-                        {s.parentName || "—"}
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell text-muted-foreground">
-                        {s.parentEmail || "—"}
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell text-muted-foreground">
-                        {s.parentPhone || "—"}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="inline-flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              setEditStudent(s);
-                              setEditStudentForm({
-                                fullName: s.fullName ?? "",
-                                parentName: (s.parentName as any) ?? "",
-                                parentEmail: (s.parentEmail as any) ?? "",
-                                parentPhone: (s.parentPhone as any) ?? "",
-                              });
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4" data-testid="students-table">
+              {studentsQ.data!.map((s) => (
+                <div key={s.id} className="profile-card" data-testid={`student-row-${s.id}`}>
+                  <div className="profile-card-bar" />
+                  <div className="profile-card-avatar">
+                    {s.image
+                      ? <img src={s.image} alt={s.fullName} />
+                      : <span>{s.fullName.substring(0, 2).toUpperCase()}</span>}
+                  </div>
+                  <span className="profile-card-name">{s.fullName}</span>
+                  <span className="profile-card-sub">{s.parentName || "No parent listed"}</span>
+                  {s.parentPhone && <span className="profile-card-sub">{s.parentPhone}</span>}
+                  <div className="profile-card-actions">
+                    <button
+                      className="profile-card-btn profile-card-btn-ghost"
+                      onClick={() => {
+                        setEditStudent(s);
+                        setEditStudentForm({
+                          fullName: s.fullName ?? "",
+                          parentName: (s.parentName as any) ?? "",
+                          parentEmail: (s.parentEmail as any) ?? "",
+                          parentPhone: (s.parentPhone as any) ?? "",
+                        });
+                      }}
+                      data-testid={`student-edit-open-${s.id}`}
+                    >
+                      Edit
+                    </button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <button
+                          className="profile-card-btn profile-card-btn-danger"
+                          data-testid={`student-delete-open-${s.id}`}
+                        >
+                          Delete
+                        </button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="rounded-2xl">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete student?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This removes the student from the class. Scores and reports may also be affected.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel className="rounded-xl" data-testid={`student-delete-cancel-${s.id}`}>
+                            Cancel
+                          </AlertDialogCancel>
+                          <AlertDialogAction
+                            className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            data-testid={`student-delete-confirm-${s.id}`}
+                            onClick={async () => {
+                              try {
+                                await deleteStudent.mutateAsync(s.id);
+                                toast({ title: "Student deleted" });
+                              } catch (e: any) {
+                                if (isUnauthorizedError(e)) return redirectToLogin(toast as any);
+                                toast({ title: "Could not delete student", description: e?.message ?? "Try again", variant: "destructive" });
+                              }
                             }}
-                            data-testid={`student-edit-open-${s.id}`}
-                            className="rounded-xl"
-                            title="Edit"
                           >
-                            <Pencil className="h-4.5 w-4.5" />
-                          </Button>
-
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => {}}
-                                data-testid={`student-delete-open-${s.id}`}
-                                className="rounded-xl text-destructive hover:text-destructive"
-                                title="Delete"
-                              >
-                                <Trash2 className="h-4.5 w-4.5" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent className="rounded-2xl">
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete student?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  This removes the student from the class. Scores and reports may also be affected.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel className="rounded-xl" data-testid={`student-delete-cancel-${s.id}`}>
-                                  Cancel
-                                </AlertDialogCancel>
-                                <AlertDialogAction
-                                  className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                  data-testid={`student-delete-confirm-${s.id}`}
-                                  onClick={async () => {
-                                    try {
-                                      await deleteStudent.mutateAsync(s.id);
-                                      toast({ title: "Student deleted" });
-                                    } catch (e: any) {
-                                      if (isUnauthorizedError(e)) return redirectToLogin(toast as any);
-                                      toast({ title: "Could not delete student", description: e?.message ?? "Try again", variant: "destructive" });
-                                    }
-                                  }}
-                                >
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </Card>

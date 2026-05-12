@@ -160,50 +160,40 @@ export default function AdminPage() {
             <Users className="h-4 w-4 text-primary" />
             Members ({members?.length ?? 0})
           </h2>
-          <div className="divide-y divide-border/60 rounded-xl border border-border/70 overflow-hidden bg-card">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {membersLoading
-              ? [1, 2, 3].map((i) => (
-                  <div key={i} className="flex items-center gap-3 p-4">
-                    <Skeleton className="h-10 w-10 rounded-full" />
-                    <div className="flex-1 space-y-1.5">
-                      <Skeleton className="h-4 w-32" />
-                      <Skeleton className="h-3 w-24" />
-                    </div>
-                  </div>
+              ? [1, 2, 3, 4].map((i) => (
+                  <Skeleton key={i} className="h-52 rounded-2xl" />
                 ))
               : members?.map((m) => {
                   const name = [m.firstName, m.lastName].filter(Boolean).join(" ").trim() || m.email || m.userId.slice(0, 8);
                   const isMe = m.userId === user?.id;
+                  const initials = userInitials(m.firstName, m.lastName, m.email).toUpperCase();
+                  const roleLabel = { admin: "Admin", school_head: "School Head", teacher: "Teacher", student: "Student" }[m.role as SchoolRole] ?? m.role;
                   return (
-                    <div key={m.id} className="flex items-center gap-3 p-4" data-testid={`row-member-${m.id}`}>
-                      <Avatar className="h-10 w-10 border border-border/60">
-                        <AvatarImage src={m.profileImageUrl ?? undefined} alt={name} />
-                        <AvatarFallback className="bg-muted text-xs">
-                          {userInitials(m.firstName, m.lastName, m.email).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">
-                          {name} {isMe && <span className="text-muted-foreground text-xs">(you)</span>}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate">{m.email ?? "No email"}</p>
-                        {m.studentName && (
-                          <p className="text-xs text-muted-foreground">Student: {m.studentName}</p>
+                    <div key={m.id} className="profile-card" data-testid={`row-member-${m.id}`}>
+                      <div className="profile-card-bar" />
+                      <div className="profile-card-avatar">
+                        {m.profileImageUrl
+                          ? <img src={m.profileImageUrl} alt={name} />
+                          : <span>{initials}</span>}
+                      </div>
+                      <span className="profile-card-name">
+                        {name}{isMe && <span style={{fontSize:"11px", opacity:0.7}}> (you)</span>}
+                      </span>
+                      <span className="profile-card-sub">{roleLabel}</span>
+                      {m.studentName && <span className="profile-card-sub">↳ {m.studentName}</span>}
+                      <div className="profile-card-actions">
+                        {isAdminRole && !isMe && m.role !== "admin" && (
+                          <button
+                            className="profile-card-btn profile-card-btn-danger"
+                            onClick={() => handleRemoveMember(m.userId, name)}
+                            data-testid={`button-remove-member-${m.id}`}
+                          >
+                            Remove
+                          </button>
                         )}
                       </div>
-                      {roleBadge(m.role as SchoolRole)}
-                      {isAdminRole && !isMe && m.role !== "admin" && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                          onClick={() => handleRemoveMember(m.userId, name)}
-                          data-testid={`button-remove-member-${m.id}`}
-                          title="Remove member"
-                        >
-                          <UserMinus className="h-4 w-4" />
-                        </Button>
-                      )}
                     </div>
                   );
                 })}
