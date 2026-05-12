@@ -88,11 +88,26 @@ export default function AppShell({ children }: PropsWithChildren) {
 
   return (
     <div className="min-h-screen app-surface">
+      {/* SVG turbulence filter defs — referenced by .island / .islandt */}
+      <svg xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", width: 0, height: 0 }}>
+        <defs>
+          <filter id="octave1" x="0%" y="0%" width="100%" height="100%" colorInterpolationFilters="sRGB">
+            <feTurbulence type="fractalNoise" baseFrequency="0.012 0.008" numOctaves="3" seed="2" stitchTiles="stitch" result="noise" />
+            <feColorMatrix type="saturate" values="0" in="noise" />
+          </filter>
+          <filter id="octave2" x="0%" y="0%" width="100%" height="100%" colorInterpolationFilters="sRGB">
+            <feTurbulence type="fractalNoise" baseFrequency="0.025 0.015" numOctaves="5" seed="8" stitchTiles="stitch" result="noise" />
+            <feColorMatrix type="saturate" values="0" in="noise" />
+          </filter>
+        </defs>
+      </svg>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
         <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6 lg:gap-8 items-start">
           <aside className="lg:sticky lg:top-6">
-            <div className="glass grain-overlay rounded-2xl shadow-premium">
-              <div className="p-5">
+            <div className="glass grain-overlay rounded-2xl shadow-premium relative overflow-hidden">
+              <div className="island" />
+              <div className="islandt" />
+              <div className="p-5 relative z-10">
                 <div className="flex items-center gap-3">
                   <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-primary to-accent grid place-items-center shadow-premium">
                     <GraduationCap className="h-6 w-6 text-primary-foreground" />

@@ -281,6 +281,34 @@
   .glossy-btn-full .glossy-inner { width: 100%; }
 }
 
+/* ── Sidebar turbulence blob layers ── */
+  .island {
+    position: absolute;
+    opacity: 0.18;
+    width: 100%;
+    height: 100%;
+    top: 0; left: 0;
+    transform: scale(1);
+    background: rgb(15, 76, 92);
+    filter: url(#octave1) brightness(20) contrast(1);
+    pointer-events: none;
+    z-index: 0;
+    border-radius: inherit;
+  }
+  .islandt {
+    position: absolute;
+    opacity: 0.12;
+    width: 100%;
+    height: 100%;
+    top: 0; left: 0;
+    transform: scale(1);
+    background: rgb(15, 76, 92);
+    filter: url(#octave2) brightness(20) contrast(1);
+    pointer-events: none;
+    z-index: 0;
+    border-radius: inherit;
+  }
+
 /* ── Profile Cards (uiverse-inspired, teal/gold palette) ── */
   .profile-card {
     background: #0F4C5C;
